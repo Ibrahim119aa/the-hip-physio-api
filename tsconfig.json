@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true
+  },
+  "exclude": [
+    "node_modules",
+    "tests"     // ✅ Exclude your tests folder
+  ]
+}
