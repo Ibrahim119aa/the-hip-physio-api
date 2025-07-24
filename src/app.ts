@@ -31,7 +31,7 @@ app.get("/", (req, res, next) => {
 });
 
 // routes
-app.use('/api/v1', require('./routes').default);
+// app.use('/api/v1', require('./routes').default);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

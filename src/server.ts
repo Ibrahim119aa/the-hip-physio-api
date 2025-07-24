@@ -1,10 +1,11 @@
 import app from "./app";
 import config from "./config/config.js";
+import connectDatabase from "./utils/connectDatabase";
 
 async function startServer() {
   try {
     // Connect to MongoDB
-    // await connectDatabase();
+    await connectDatabase();
 
     app.listen(config.port, () => {
       console.log(`Server is running on port ${config.port}`);
