@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import { TUserDocument } from "../types/user.type";
+import bcrypt from 'bcrypt';
+import config from "../config/config";
 
-const userSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema<TUserDocument>({
   email: {
     type: String,
     required: true,
@@ -30,6 +32,19 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Notification'
   }],
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
+  },
+  start_date: {
+    type: Date,
+    default: Date.now
+  },
+  last_login: {
+    type: Date,
+    default: Date.now
+  },
   streak: {
     type: Number,
     default: 0
@@ -43,27 +58,48 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
-  created_at: {
-    type: Date,
-    default: Date.now
+  resetPasswordToken: {
+    type: String,
+    default: null,
   },
-  updated_at: {
+  resetPasswordTokenExpiresAt: {
     type: Date,
-    default: Date.now
+    default: null,
   }
+  
+},{
+  timestamps: true
 });
 
-// Update the updated_at field before saving
-// userSchema.pre('save', function(next) {
-//     const user = this as TUserDocument;
-//     if(!user.isModified('password')) return next();
-//     try {
-//       const salt = bcrypt.hash    
-//     } catch (error) {
 
-//     } 
-// });
+userSchema.pre('save', async function(next) {
+  const user = this as TUserDocument;
+  if(!user.isModified('password')) return next();
 
-const User = mongoose.model('User', userSchema);
+  try {
+    const salt = await bcrypt.genSalt(Number(config.saltFactor))
+    const hashedPassword = await bcrypt.hash(user.password, salt);
+    user.password = hashedPassword;
 
-module.exports = User;
+    next();
+
+  } catch (error: any) {
+    console.error('Failed to hash password:', error);
+    next(error);
+  } 
+});
+
+userSchema.methods.comparePassword = async function(candidatePassword: string) {
+  const user = this as TUserDocument;
+
+  try {
+    return bcrypt.compare(candidatePassword, user.password);
+  } catch (error) {
+    console.error('Failed to compare passwords:', error);
+    return false;
+  }
+};
+
+const UserModel = mongoose.models.User || mongoose.model<TUserDocument>('User', userSchema);
+
+export default UserModel;

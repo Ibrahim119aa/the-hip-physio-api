@@ -6,13 +6,16 @@ export type TUser = {
   password: string;
   name: string;
   profile_photo: string;
-  purchased_plans: Types.ObjectId[]; // Array of ObjectIds (ref: 'Plan')
-  notifications: Types.ObjectId[]; // Array of ObjectIds (ref: 'Notification')
+  purchased_plans: Types.ObjectId[];
+  notifications: Types.ObjectId[];
   streak: number;
   progress: number;
+  status: "active" | "inactive",
   role: 'user' | 'admin';
-  created_at: Date;
-  updated_at: Date;
+  resetPasswordToken: string | null,
+  resetPasswordTokenExpiresAt: Date | null,
+  start_date: Date;
+  last_login: Date;
 }
 
 export type TUserDocument = TUser & Document;
