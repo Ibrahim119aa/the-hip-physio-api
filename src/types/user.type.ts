@@ -1,21 +1,22 @@
 import { Document, Types } from 'mongoose';
 
-// Main User Document interface
 export type TUser = {
   email: string;
   password: string;
   name: string;
   profile_photo: string;
-  purchased_plans: Types.ObjectId[];
+  purchasedPlans: Types.ObjectId[];
+  planStartDate: Date;
   notifications: Types.ObjectId[];
+  fcmToken: String;
   streak: number;
   progress: number;
   status: "active" | "inactive",
   role: 'user' | 'admin';
   resetPasswordToken: string | null,
   resetPasswordTokenExpiresAt: Date | null,
-  start_date: Date;
-  last_login: Date;
+  startDate: Date;
+  lastLogin: Date;
 }
 
 export type TUserDocument = TUser & Document;

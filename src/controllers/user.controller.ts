@@ -52,8 +52,8 @@ export const stripeWebhookAndCreateCredentialHandler = async (
 
         if (existingUser) {
           // Update existing user if plan not already added
-          if (!existingUser.purchased_plans.includes(planIdObject)) {
-            existingUser.purchased_plans.push(planIdObject);
+          if (!existingUser.purchasedPlans.includes(planIdObject)) {
+            existingUser.purchasedPlans.push(planIdObject);
             await existingUser.save();
           }
           return res.status(200).json({

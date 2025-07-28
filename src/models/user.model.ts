@@ -24,24 +24,32 @@ const userSchema = new mongoose.Schema<TUserDocument>({
     type: String,
     default: ''
   },
-  purchased_plans: [{
+  purchasedPlans: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Plan'
+    ref: 'RehabPlan'
   }],
+  planStartDate: {
+    type: Date
+  },
   notifications: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Notification'
   }],
+  // For Push Notifications
+  fcmToken: {
+    type: String,
+    default: null
+  },
   status: {
     type: String,
     enum: ['active', 'inactive'],
     default: 'active'
   },
-  start_date: {
+  startDate: {
     type: Date,
     default: Date.now
   },
-  last_login: {
+  lastLogin: {
     type: Date,
     default: Date.now
   },
