@@ -1,0 +1,43 @@
+import config from "../../config/config";
+// import { smtpTransport } from "../../utils/smtpMailer";
+import { generatePasswordResetEmailHtml } from "../htmlForEmail";
+import { client, sender } from "../mailtrapConfig";
+
+
+export const sendPasswordResetEmail = async (email:string, resetURL:string, name: string) => {
+  const recipient = [{ email }];
+  const htmlContent = generatePasswordResetEmailHtml(resetURL, name);
+console.log(config.mailtrapApiToken);
+
+  try {
+    const res = await client.send({
+      from: sender,
+      to: recipient,
+      subject: 'Reset your password',
+      html:htmlContent,
+      category:"Reset Password"
+    });
+  } catch (error) {
+    console.error("SMTP Password Reset Email error:", error);
+    throw new Error("Failed to send password reset email");
+  }
+}
+
+
+// FOR PRODUCTION
+// export const sendPasswordResetEmailSMTP = async (email:string, resetURL:string, name: string) => {
+//   const htmlContent = generatePasswordResetEmailHtml(resetURL, name);
+
+//   try {
+//     await smtpTransport.sendMail({
+//       from: `"The Hip Physio Team" <noreply@thehipphysio.com>`,
+//       to: email,
+//       subject: 'Reset your password',
+//       html: htmlContent,
+//     })
+
+//   } catch (error) {
+//     console.error("SMTP Password Reset Email error:", error);
+//     throw new Error("Failed to send password reset email");
+//   }
+// }

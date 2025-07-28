@@ -7,7 +7,10 @@ export const dummyStripeEvent = {
     object: {
       id: "cs_test_abc123xyz789",
       object: "checkout.session",
-      customer_email: "rehab.user@example.com",
+      customer_details: {
+        email: "muzafar@geeksroot.com",
+        name: "John Doe"
+      },
       payment_status: "paid",
       amount_total: 4900,
       currency: "usd",

@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import notFoundHandler from './middlewares/notFoundHandler';
 import globalErrorHandler from './middlewares/globalErrorHandler.middleware';
 import config from './config/config';
+import userRoutes from './routes/user.routes';
 
 const app = express();
 
@@ -31,7 +32,7 @@ app.get("/", (req, res, next) => {
 });
 
 // routes
-// app.use('/api/v1',);
+app.use('/api/user', userRoutes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
