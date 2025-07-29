@@ -180,16 +180,18 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
 export const loginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-
+    console.log('email', email);
+    console.log('password', password);
+    
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
     }
 
     const user = await UserModel.findOne({ email });
-
-    if (!user) {
-      throw new ErrorHandler(404, 'Invalid credentials');
-    }
+    if (!user) throw new ErrorHandler(404, 'Invalid credentials');
+    
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) throw new ErrorHandler(404, 'Invalid credentials');
 
     // Generate JWT token
     const token = generateToken({

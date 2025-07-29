@@ -64,3 +64,4 @@ const rehabPlanSchema = new mongoose.Schema({
 const RehabPlanModel = mongoose.models.RehabPlan || mongoose.model('RehabPlan', rehabPlanSchema);
 
 export default RehabPlanModel;
+

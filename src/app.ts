@@ -24,7 +24,7 @@ app.use(cookieParser());
 app.get("/", (req, res, next) => {
   try {
     res.status(200).json({
-      message: "Wellcome to The Hip Physio"
+      message: "Welcome to The Hip Physio"
     })
   } catch (error) {
     next(error)
