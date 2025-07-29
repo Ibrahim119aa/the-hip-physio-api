@@ -8,7 +8,8 @@ import { Types } from "mongoose";
 import { sendAccountCredentialsEmail } from "../mailtrap/emails/sendAccountCredentialsEmail";
 import { dummyStripeEvent } from "../utils/DummyData";
 import ErrorHandler from "../utils/errorHandlerClass";
-import { sendNewPasswordEmail, sendPasswordResetEmail } from "../mailtrap/emails/sendPasswordResetEmail";
+import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
+import { generateToken } from "../utils/JwtHelpers";
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 
 
@@ -190,11 +191,15 @@ export const loginHandler = async (req: Request, res: Response, next: NextFuncti
       throw new ErrorHandler(404, 'Invalid credentials');
     }
 
-    // const token = user.getSignedJwtToken();
-
+    // Generate JWT token
+    const token = generateToken({
+      userId: user._id, 
+      email: user.email
+    });
+    
     res.status(200).json({
       success: true,
-      // token,
+      token,
       user: {
         id: user._id,
         name: user.name,
@@ -214,23 +219,21 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
   try {
     const { email } = req.body;
 
-    if (!email) {
-      throw new ErrorHandler(400, 'Email is required');
-    }
-    const users = await UserModel.find();
-    console.log(users)
+    if (!email) throw new ErrorHandler(400, 'Email is required');
+
     // Find user and handle not found
     const user = await UserModel.findOne({ email });
-    if (!user) {
-      throw new ErrorHandler(404, 'User not found');
-    }
+
+    if (!user) throw new ErrorHandler(404, 'User not found');
 
     // Generate and set new password
     const generatedPassword = createPassword();
+
+    // save new password
     user.password = generatedPassword;
     await user.save();
     
-    await sendNewPasswordEmail(user.email, generatedPassword, user.name);
+    await sendNewPasswordEmailSMTP(user.email, generatedPassword, user.name);
 
     res.status(200).json({
       success: true,

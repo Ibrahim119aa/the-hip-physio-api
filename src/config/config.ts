@@ -20,8 +20,8 @@ const config = {
 
   // JWT 
   jwtSecret: process.env.JWT_SECRET,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN,
-  jwtCookieExpiresIn: process.env.JWT_COOKIE_EXPIRES_IN,
+  jwtExpiresIn: '1d',
+  jwtCookieExpiresIn: 86400,
 
   iosAppLink: "not added ",
   androidAppLink:'not added'

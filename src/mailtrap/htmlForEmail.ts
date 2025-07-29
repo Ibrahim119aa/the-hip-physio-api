@@ -299,12 +299,31 @@ export const generateNewPasswordEmailHtml = (newPassword: string, name: string) 
           max-width: 600px;
           margin: auto;
         }
+        .logo-header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+          padding: 20px 0;
+          background-color: white;
+        }
+        .logo-img {
+          max-height: 80px;
+          max-width: 200px;
+        }
+        .company-name {
+          font-size: 24px;
+          font-weight: bold;
+          color: #11989D;
+          margin-top: 10px;
+        }
         .email-header {
-          background-color: #d9534f;
+          background-color: #11989D;
           color: white;
           padding: 10px;
           text-align: center;
           border-radius: 10px 10px 0 0;
+          margin-top: 10px;
         }
         .email-body {
           padding: 20px;
@@ -337,12 +356,19 @@ export const generateNewPasswordEmailHtml = (newPassword: string, name: string) 
     </head>
     <body>
       <div class="email-container">
+        <div class="logo-header">
+          <img src="https://cdn.prod.website-files.com/639b805aaca91b48d316e315/6499d47277d8e8be8ade1539_The%20Hip%20Physio%20Logo.png" 
+            class="logo-img" 
+            alt="The HIP Physio Logo"
+          >
+          <div class="company-name">The Hip Physio</div>
+        </div>
         <div class="email-header">
-          <h1>Your New Temporary Password</h1>
+          <h1>Your New Password</h1>
         </div>
         <div class="email-body">
           <p>Hi ${name},</p>
-          <p>We received a request to reset your password. Here's your new temporary password:</p>
+          <p>We received a request to reset your password. Here's your new password:</p>
           <div class="password-box">${newPassword}</div>
           <p class="note">Please use this password to log in to your account. We recommend changing this password after logging in for security purposes.</p>
           <p>If you didn't request a password reset, please contact our support team immediately.</p>
