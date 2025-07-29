@@ -370,7 +370,7 @@ export const generateNewPasswordEmailHtml = (newPassword: string, name: string) 
           <p>Hi ${name},</p>
           <p>We received a request to reset your password. Here's your new password:</p>
           <div class="password-box">${newPassword}</div>
-          <p class="note">Please use this password to log in to your account. We recommend changing this password after logging in for security purposes.</p>
+          <p class="note">Please use this password to log in to your account.</p>
           <p>If you didn't request a password reset, please contact our support team immediately.</p>
           <p>Thank you,<br/>The Hip Physio</p>
         </div>

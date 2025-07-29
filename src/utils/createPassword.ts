@@ -1,6 +1,6 @@
 const createPassword = (): string => {
   const length = 12;
-  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let password = "";
   
   for (let i = 0; i < length; i++) {
