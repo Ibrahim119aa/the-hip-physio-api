@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
-
+import { Response } from 'express';
 
 type TokenPayload = {
   userId: string;
@@ -17,15 +17,6 @@ export const generateToken = (payload: TokenPayload): string => {
   });
   return token;
 };
-
-import jwt from 'jsonwebtoken';
-import { Response } from 'express';
-
-interface TokenPayload {
-  userId: string;
-  email: string;
-  // Add other payload fields as needed
-}
 
 // Generate JWT token and save as HTTP-only cookie
 export const generateTokenAndSaveCookies = (

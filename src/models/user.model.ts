@@ -74,7 +74,7 @@ const userSchema = new mongoose.Schema<TUserDocument>({
     type: Date,
     default: null,
   },
-  therapistPhoto: String;
+  therapistPhoto: String
   
 },{
   timestamps: true
