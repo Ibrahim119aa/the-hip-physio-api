@@ -8,7 +8,7 @@ import { Types } from "mongoose";
 import { sendAccountCredentialsEmail } from "../mailtrap/emails/sendAccountCredentialsEmail";
 import { dummyStripeEvent } from "../utils/DummyData";
 import ErrorHandler from "../utils/errorHandlerClass";
-import { sendPasswordResetEmail } from "../mailtrap/emails/sendPasswordResetEmail";
+import { sendNewPasswordEmail, sendPasswordResetEmail } from "../mailtrap/emails/sendPasswordResetEmail";
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 
 
@@ -217,7 +217,8 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
     if (!email) {
       throw new ErrorHandler(400, 'Email is required');
     }
-
+    const users = await UserModel.find();
+    console.log(users)
     // Find user and handle not found
     const user = await UserModel.findOne({ email });
     if (!user) {
@@ -226,10 +227,10 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
 
     // Generate and set new password
     const generatedPassword = createPassword();
-    user.password = generatedPassword; // Ensure pre-save hook hashes this
+    user.password = generatedPassword;
     await user.save();
     
-    await sendPasswordResetEmail(email, 'http', user.name)
+    await sendNewPasswordEmail(user.email, generatedPassword, user.name);
 
     res.status(200).json({
       success: true,

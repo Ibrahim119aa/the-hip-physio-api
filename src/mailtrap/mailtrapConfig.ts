@@ -1,9 +1,12 @@
 import { MailtrapClient } from "mailtrap";
 import config from "../config/config.js";
 
-export const client = new MailtrapClient({token: config.mailtrapApiToken! });
-console.log('config.mailtrapApiToken', config.mailtrapApiToken);
+const TOKEN = config.mailtrapApiToken!;
+console.log("TOKEN", TOKEN)
+
+export const client = new MailtrapClient({token: TOKEN });
+
 export const sender = {
-  email: "mailtrap@demomailtrap.com",
-  name: "The Hip Physio Team",
+  email: "no-reply@demomailtrap.com",
+  name: "The Hip Physio",
 };

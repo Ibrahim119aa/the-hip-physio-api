@@ -4,7 +4,7 @@ dotenv.config();
 const config = {
   crossOrigin: process.env.CLIENT_URL,
   clientUrl: process.env.CLIENT_URL,
-  port: process.env.PORT || 3000,
+  port: process.env.PORT || 4000,
   environment: process.env.ENV_NODE,
   mongoURI: process.env.MONGO_URI,
   saltFactor: process.env.SALT,

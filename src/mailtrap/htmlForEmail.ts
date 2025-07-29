@@ -216,6 +216,7 @@ export const htmlContent: string = `
 //     `;
 // };
 
+// USE TO SEND RESET URL LINK
 export const generatePasswordResetEmailHtml = (resetURL: string, name: string) => {
   return `
   <html>
@@ -271,7 +272,81 @@ export const generatePasswordResetEmailHtml = (resetURL: string, name: string) =
           <p>We received a request to reset your password. Click the button below to reset it.</p>
           <a href="${resetURL}" class="button">Reset Password</a>
           <p>If you didn't request a password reset, please ignore this email.</p>
-          <p>Thank you,<br/>The The Hip Physio Team</p>
+          <p>Thank you,<br/>The Hip Physio Team</p>
+        </div>
+        <div class="email-footer">
+          <p>&copy; 2025 The Hip Physio. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+  </html>
+`;
+}
+
+// USE TO SEND  NEW PASSWORD
+export const generateNewPasswordEmailHtml = (newPassword: string, name: string) => {
+  return `
+  <html>
+    <head>
+      <style>
+        .email-container {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          padding: 20px;
+          background-color: #f4f4f4;
+          border-radius: 10px;
+          max-width: 600px;
+          margin: auto;
+        }
+        .email-header {
+          background-color: #d9534f;
+          color: white;
+          padding: 10px;
+          text-align: center;
+          border-radius: 10px 10px 0 0;
+        }
+        .email-body {
+          padding: 20px;
+          background-color: white;
+          border-radius: 0 0 10px 10px;
+        }
+        .email-footer {
+          text-align: center;
+          padding: 10px;
+          font-size: 12px;
+          color: #777;
+        }
+        .password-box {
+          display: inline-block;
+          padding: 10px 20px;
+          margin: 20px 0;
+          font-size: 16px;
+          color: #333;
+          background-color: #f8f9fa;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+          font-family: monospace;
+        }
+        .note {
+          font-size: 14px;
+          color: #666;
+          font-style: italic;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="email-header">
+          <h1>Your New Temporary Password</h1>
+        </div>
+        <div class="email-body">
+          <p>Hi ${name},</p>
+          <p>We received a request to reset your password. Here's your new temporary password:</p>
+          <div class="password-box">${newPassword}</div>
+          <p class="note">Please use this password to log in to your account. We recommend changing this password after logging in for security purposes.</p>
+          <p>If you didn't request a password reset, please contact our support team immediately.</p>
+          <p>Thank you,<br/>The Hip Physio</p>
         </div>
         <div class="email-footer">
           <p>&copy; 2025 The Hip Physio. All rights reserved.</p>
