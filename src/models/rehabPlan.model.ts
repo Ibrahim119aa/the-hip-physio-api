@@ -24,7 +24,7 @@ const dailyScheduleSchema = new mongoose.Schema({
 
 
 const rehabPlanSchema = new mongoose.Schema({
-  name: {
+  title: {
     type: String,
     required: true,
     unique: true,
@@ -35,6 +35,7 @@ const rehabPlanSchema = new mongoose.Schema({
     enum: ['Paid', 'Free'],
     required: true
   },
+  description: String,
   durationWeeks: {
     type: Number,
     required: true
@@ -65,3 +66,21 @@ const RehabPlanModel = mongoose.models.RehabPlan || mongoose.model('RehabPlan', 
 
 export default RehabPlanModel;
 
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const planSchema = new Schema({
+  title: { type: String, required: true },
+  description: String,
+  price: { type: Number, required: true, min: 0 },
+  phase: { type: String, enum: ['Early', 'Mid', 'Late'], default: 'Early' },
+  duration_weeks: { type: Number, min: 1 },
+  sessions: [{ type: Schema.Types.ObjectId, ref: 'Session' }],
+  educational_video_ids: [{ type: Schema.Types.ObjectId, ref: 'EducationalVideo' }],
+  image: String,
+  tags: [String],
+  created_by: { type: Schema.Types.ObjectId, ref: 'Admin', required: true },
+  created_at: { type: Date, default: Date.now }
+});
+
+const Plan = mongoose.model('Plan', planSchema);

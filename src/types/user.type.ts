@@ -17,6 +17,7 @@ export type TUser = {
   resetPasswordTokenExpiresAt: Date | null,
   startDate: Date;
   lastLogin: Date;
+  therapistPhoto: string;
 }
 
 export type TUserDocument = TUser & Document;
