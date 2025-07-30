@@ -12,10 +12,7 @@ export type TExercise = {
   bodyPart: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   estimatedDuration?: number;
-  isActive: boolean;
   createdBy: Types.ObjectId;
-  createdAt?: Date;
-  updatedAt?: Date;
 };
 
 export type TExerciseDocument = TExercise & Document;

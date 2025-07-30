@@ -1,11 +1,22 @@
 import { NextFunction, Request, Response } from "express";
 import ExerciseModel from "../models/excercise.model";
 import ErrorHandler from "../utils/errorHandlerClass";
-import { uploadVideoToCloudinary, uploadImageToCloudinary, deleteFromCloudinary, extractPublicIdFromUrl } from "../utils/cloudinaryUpload";
+import { uploadVideoToCloudinary } from "../utils/cloudinaryUploads/uploadVideoToCloudinary";
+import { uploadImageToCloudinary } from "../utils/cloudinaryUploads/uploadImageToCloudinary";
+import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudinaryUploads/extractPublicIdFromUrl";
+import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
+import mongoose from "mongoose";
 
-// Add new exercise
+// Add new exercise with atomicity
 export const addExerciseHandler = async (req: Request, res: Response, next: NextFunction) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  let uploadedVideoUrl = '';
+  let uploadedThumbnailUrl = '';
+  
   try {
+    console.log('Starting addExerciseHandler...');
     const { name, description, reps, sets, category, tags, bodyPart, difficulty, estimatedDuration } = req.body;
 
     // Validate required fields
@@ -18,39 +29,55 @@ export const addExerciseHandler = async (req: Request, res: Response, next: Next
       throw new ErrorHandler(400, 'Video file is required');
     }
 
+    console.log('Video file received:', {
+      filename: req.videoFile.originalname,
+      size: req.videoFile.size,
+      mimetype: req.videoFile.mimetype
+    });
+
     // Check if exercise with same name already exists
-    const existingExercise = await ExerciseModel.findOne({ name });
+    const existingExercise = await ExerciseModel.findOne({ name }).session(session);
     if (existingExercise) {
       throw new ErrorHandler(409, 'Exercise with this name already exists');
     }
 
+    console.log('Uploading video to Cloudinary...');
     // Upload video to Cloudinary
-    const videoUrl = await uploadVideoToCloudinary(req.videoFile);
+    uploadedVideoUrl = await uploadVideoToCloudinary(req.videoFile);
+    console.log('Video uploaded successfully:', uploadedVideoUrl);
 
     // Upload thumbnail if provided, otherwise generate from video
-    let thumbnailUrl = '';
     if (req.thumbnailFile) {
-      thumbnailUrl = await uploadImageToCloudinary(req.thumbnailFile);
+      console.log('Uploading thumbnail to Cloudinary...');
+      uploadedThumbnailUrl = await uploadImageToCloudinary(req.thumbnailFile);
+      console.log('Thumbnail uploaded successfully:', uploadedThumbnailUrl);
     } else {
       // Generate thumbnail from video (you can implement this later)
-      thumbnailUrl = videoUrl.replace('.mp4', '_thumb.jpg'); // Placeholder
+      uploadedThumbnailUrl = uploadedVideoUrl.replace('.mp4', '_thumb.jpg'); // Placeholder
     }
 
     const newExercise = new ExerciseModel({
       name,
       description,
-      videoUrl,
-      thumbnailUrl,
+      videoUrl: uploadedVideoUrl,
+      thumbnailUrl: uploadedThumbnailUrl,
       reps,
       sets,
       category,
-      tags: tags || [],
+      tags: tags ? tags.split(',').map((tag: string) => tag.trim()) : [],
       bodyPart,
       difficulty: difficulty || "Beginner",
-      estimatedDuration
+      estimatedDuration: estimatedDuration ? parseInt(estimatedDuration) : undefined,
+      createdBy: req.userId 
     });
 
-    await newExercise.save();
+    console.log('Saving exercise to database...');
+    await newExercise.save({ session });
+    console.log('Exercise saved successfully');
+
+    // Commit the transaction
+    await session.commitTransaction();
+    console.log('Transaction committed successfully');
 
     res.status(201).json({
       success: true,
@@ -59,13 +86,63 @@ export const addExerciseHandler = async (req: Request, res: Response, next: Next
     });
 
   } catch (error) {
-    console.error('addExerciseHandler error', error);
+    console.error('addExerciseHandler error:', error);
+    
+    // Abort the transaction
+    await session.abortTransaction();
+    console.log('Transaction aborted due to error');
+    
+    // Clean up uploaded files if any files were uploaded (regardless of error type)
+    if (uploadedVideoUrl || uploadedThumbnailUrl) {
+      console.log('Cleaning up uploaded files due to error...');
+      
+      // Test public ID extraction
+      console.log('Testing public ID extraction:');
+      testPublicIdExtraction();
+      
+      try {
+        // Always clean up video file if it was uploaded
+        if (uploadedVideoUrl) {
+          console.log('Attempting to clean up video file:', uploadedVideoUrl);
+          const videoPublicId = extractPublicIdFromUrl(uploadedVideoUrl);
+          if (videoPublicId) {
+            await deleteFromCloudinary(videoPublicId, 'video');
+            console.log('Successfully cleaned up video file');
+          } else {
+            console.log('Could not extract public ID from video URL');
+          }
+        }
+        
+        // Clean up thumbnail file if it was uploaded (not a placeholder)
+        if (uploadedThumbnailUrl && uploadedThumbnailUrl !== uploadedVideoUrl.replace('.mp4', '_thumb.jpg')) {
+          console.log('Attempting to clean up thumbnail file:', uploadedThumbnailUrl);
+          const thumbnailPublicId = extractPublicIdFromUrl(uploadedThumbnailUrl);
+          if (thumbnailPublicId) {
+            await deleteFromCloudinary(thumbnailPublicId, 'image');
+            console.log('Successfully cleaned up thumbnail file');
+          } else {
+            console.log('Could not extract public ID from thumbnail URL');
+          }
+        }
+      } catch (cleanupError) {
+        console.error('Error cleaning up files:', cleanupError);
+        // Don't throw cleanup errors as they're not critical
+      }
+    } else {
+      console.log('No files to clean up');
+    }
+    
     next(error);
+  } finally {
+    // End the session
+    session.endSession();
   }
 };
 
 // Update exercise
 export const updateExerciseHandler = async (req: Request, res: Response, next: NextFunction) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -122,6 +199,9 @@ export const updateExerciseHandler = async (req: Request, res: Response, next: N
       updateData,
       { new: true, runValidators: true }
     );
+    if (!updatedExercise) throw new ErrorHandler(404, 'Exercise not updated');
+    
+    await session.commitTransaction();
 
     res.status(200).json({
       success: true,
@@ -130,13 +210,19 @@ export const updateExerciseHandler = async (req: Request, res: Response, next: N
     });
 
   } catch (error) {
+    await session.abortTransaction();
     console.error('updateExerciseHandler error', error);
     next(error);
+  }
+  finally {
+    session.endSession();
   }
 };
 
 // Delete exercise
 export const deleteExerciseHandler = async (req: Request, res: Response, next: NextFunction) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { id } = req.params;
 
@@ -144,10 +230,8 @@ export const deleteExerciseHandler = async (req: Request, res: Response, next: N
       throw new ErrorHandler(400, 'Exercise ID is required');
     }
 
-    const exercise = await ExerciseModel.findById(id);
-    if (!exercise) {
-      throw new ErrorHandler(404, 'Exercise not found');
-    }
+    const exercise = await ExerciseModel.findById(id).session(session);
+    if (!exercise) throw new ErrorHandler(404, 'Exercise not found');
 
     // Delete files from Cloudinary
     if (exercise.videoUrl) {
@@ -165,7 +249,10 @@ export const deleteExerciseHandler = async (req: Request, res: Response, next: N
     }
 
     // Delete exercise from database
-    await ExerciseModel.findByIdAndDelete(id);
+    const excerciseDeleted = await ExerciseModel.findByIdAndDelete(id).session(session);
+    if(!excerciseDeleted) throw new ErrorHandler(404, 'Exercise not found');
+
+    await session.commitTransaction();
 
     res.status(200).json({
       success: true,
@@ -173,8 +260,11 @@ export const deleteExerciseHandler = async (req: Request, res: Response, next: N
     });
 
   } catch (error) {
+    await session.abortTransaction();
     console.error('deleteExerciseHandler error', error);
     next(error);
+  } finally {
+    session.endSession();
   }
 };
 
@@ -372,9 +462,9 @@ export const searchExercisesHandler = async (req: Request, res: Response, next: 
       { $text: { $search: q as string } },
       { score: { $meta: "textScore" } }
     )
-      .sort({ score: { $meta: "textScore" } })
-      .skip(skip)
-      .limit(Number(limit));
+    .sort({ score: { $meta: "textScore" } })
+    .skip(skip)
+    .limit(Number(limit));
 
     const total = await ExerciseModel.countDocuments({ $text: { $search: q as string } });
 

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { TExerciseDocument } from "../types/excercise.types";
 
-const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
+export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
   name: {
     type: String,
     required: true,
@@ -50,10 +50,6 @@ const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
   estimatedDuration: {
     type: Number, // Duration in minutes
     required: false
-  },
-  isActive: {
-    type: Boolean,
-    default: true
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

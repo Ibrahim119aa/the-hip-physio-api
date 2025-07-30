@@ -5,7 +5,7 @@ import ErrorHandler from "../utils/errorHandlerClass";
 export const validateAndSanitize = (schema: AnyZodObject) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await schema.safeParse({
+      const result = schema.safeParse({
         body: req.body,
         params: req.params,
         // query: req.query,

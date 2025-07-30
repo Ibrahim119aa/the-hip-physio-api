@@ -7,7 +7,9 @@ const storage = multer.memoryStorage();
 
 // File filter function
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Check file type
+  console.log('Processing file:', file.fieldname, file.mimetype);
+  
+  // Check file type based on field name
   if (file.fieldname === 'video') {
     if (!file.mimetype.startsWith('video/')) {
       return cb(new ErrorHandler(400, 'Only video files are allowed for video upload'));
@@ -16,6 +18,10 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
     if (!file.mimetype.startsWith('image/')) {
       return cb(new ErrorHandler(400, 'Only image files are allowed for thumbnail upload'));
     }
+  } else {
+    // Log unexpected field names for debugging
+    console.log('Unexpected field name:', file.fieldname);
+    return cb(new ErrorHandler(400, `Unexpected field name: ${file.fieldname}. Expected fields are 'video' and 'thumbnail'`));
   }
 
   cb(null, true);
@@ -38,24 +44,28 @@ export const uploadVideo = upload.single('video');
 export const uploadImage = upload.single('thumbnail');
 
 // Middleware for both video and thumbnail upload
-export const uploadExerciseFiles = upload.fields([
+export const uploadVideoAndThumbnail = upload.fields([
   { name: 'video', maxCount: 1 },
   { name: 'thumbnail', maxCount: 1 }
 ]);
 
 // Error handling middleware for multer
 export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Multer error:', error);
+  
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
       return next(new ErrorHandler(400, 'File size too large. Maximum size is 100MB'));
     }
     if (error.code === 'LIMIT_FILE_COUNT') {
-      return next(new ErrorHandler(400, 'Too many files uploaded'));
+      console.error('File count exceeded. Received files:', req.files);
+      return next(new ErrorHandler(400, 'Too many files uploaded. Please send only one video file and one thumbnail file.'));
     }
     if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-      return next(new ErrorHandler(400, 'Unexpected file field'));
+      console.error('Unexpected file field:', error.field);
+      return next(new ErrorHandler(400, `Unexpected file field: ${error.field}. Expected fields are 'video' and 'thumbnail'`));
     }
-    return next(new ErrorHandler(400, 'File upload error'));
+    return next(new ErrorHandler(400, `File upload error: ${error.message}`));
   }
 
   if (error instanceof ErrorHandler) {
@@ -68,11 +78,14 @@ export const handleUploadError = (error: any, req: Request, res: Response, next:
 // Validation middleware for exercise uploads
 export const validateExerciseUpload = (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log('Received files:', req.files);
+    console.log('Request body:', req.body);
+    
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     
     // Check if video is provided
     if (!files || !files.video || files.video.length === 0) {
-      throw new ErrorHandler(400, 'Video file is required');
+      throw new ErrorHandler(400, 'Video file is required. Please send a file with field name: video');
     }
 
     const videoFile = files.video[0];
@@ -90,7 +103,7 @@ export const validateExerciseUpload = (req: Request, res: Response, next: NextFu
 
     // Attach files to request for controller access
     req.videoFile = videoFile;
-    req.thumbnailFile = thumbnailFile;
+    req.thumbnailFile = thumbnailFile || undefined;
 
     next();
 

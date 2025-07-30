@@ -13,31 +13,33 @@ import {
   getAllBodyPartsHandler,
   getExercisesByBodyPartHandler
 } from "../controllers/exercise.controller";
-import { adminAuthMiddleware, userAuthMiddleware } from "../middlewares/isAdmin.middleware";
-import { uploadExerciseFiles, validateExerciseUpload, handleUploadError } from "../middlewares/upload.middleware";
+import { uploadVideoAndThumbnail, validateExerciseUpload, handleUploadError } from "../middlewares/upload.middleware";
+import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
+import { hasRole } from "../middlewares/hasRole.middleware";
 
 const router = Router();
 
-// CRUD operations
-router.route("/")
-  .post(adminAuthMiddleware, uploadExerciseFiles, validateExerciseUpload, addExerciseHandler)
-  .get(getAllExercisesHandler);
-
-router.route("/:id")
-  .get(getExerciseByIdHandler)
-  .put(adminAuthMiddleware, uploadExerciseFiles, validateExerciseUpload, updateExerciseHandler)
-  .delete(adminAuthMiddleware, deleteExerciseHandler);
-
-// Handle upload errors
+// Handle upload errors - must be placed BEFORE routes that use file uploads
 router.use(handleUploadError);
 
-// Search and filter endpoints
+// Static routes (specific paths first)
 router.route("/search").get(searchExercisesHandler);
 router.route("/categories").get(getAllCategoriesHandler);
 router.route("/tags").get(getAllTagsHandler);
+router.route("/body-parts").get(getAllBodyPartsHandler);
+router.route("/dashboard").get(getDashboardExercisesHandler);
+
+// Dynamic routes (with parameters)
 router.route("/category/:category").get(getExercisesByCategoryHandler);
 router.route("/body-part/:bodyPart").get(getExercisesByBodyPartHandler);
-router.route("/dashboard").get(getDashboardExercisesHandler);
-router.route("/body-parts").get(getAllBodyPartsHandler);
+router.route("/:id")  // ⚠️ Now this won't accidentally catch "/search"
+  .get(getExerciseByIdHandler)
+  .put(isAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseUpload, updateExerciseHandler)
+  .delete(isAuthenticated, hasRole('admin'), deleteExerciseHandler);
 
-export default router; 
+// CRUD operations (root path)
+router.route("/")
+  .post(isAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseUpload, addExerciseHandler)
+  .get(getAllExercisesHandler);
+
+export default router;
