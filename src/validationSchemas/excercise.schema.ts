@@ -1,5 +1,5 @@
 // import z from "zod"
-// export const excerciseSchema = z.object({
+// export const exerciseSchema = z.object({
 //   body: z.object({
 //     name: z.string().min(3, "name is required").max(50),
 //     description: z.string().min(10, "description is required").max(500),

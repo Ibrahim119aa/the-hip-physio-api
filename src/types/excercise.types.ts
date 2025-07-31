@@ -7,7 +7,8 @@ export type TExercise = {
   thumbnailUrl?: string;
   reps: string;
   sets: string;
-  category: string;
+  category: Types.ObjectId;
+  categoryName: string;
   tags?: string[];
   bodyPart: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';

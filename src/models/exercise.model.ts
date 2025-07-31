@@ -29,6 +29,11 @@ export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
     required: true
   },
   category: {
+    type: mongoose.Schema.Types.ObjectId, // e.g., "Hip / Strengthening", "Core", "Mobility"
+    ref: 'ExerciseCategory',
+    required: true
+  },
+  categoryName: {
     type: String, // e.g., "Hip / Strengthening", "Core", "Mobility"
     required: true,
     trim: true
@@ -42,9 +47,14 @@ export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
     required: true,
     trim: true
   },
+  // phase: {
+  //   type: String,
+  //   enum: ['Warm Up', 'Main Exercise', 'Cool Down', 'Recovery'],
+  //   default: 'Main Exercise'
+  // },
   difficulty: {
     type: String, // e.g., "Beginner", "Intermediate", "Advanced"
-    enum: ["Beginner", "Intermediate", "Advanced"],
+    enum: ["Beginner", "Medium", "Advanced"],
     default: "Beginner"
   },
   estimatedDuration: {
@@ -59,7 +69,10 @@ export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
 }, { timestamps: true });
 
 // Create a text index for searching by name, category, and tags
-exerciseSchema.index({ name: 'text', category: 'text', tags: 'text' });
+exerciseSchema.index(
+  { name: 'text', categoryName: 'text', tags: 'text', bodyPart: 'text' },
+  { name: "exercise_search_index" } // Custom name
+);
 
 const ExerciseModel = mongoose.models.Exercise || mongoose.model('Exercise', exerciseSchema);
 

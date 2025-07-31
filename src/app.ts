@@ -7,6 +7,7 @@ import globalErrorHandler from './middlewares/globalErrorHandler.middleware';
 import config from './config/config';
 import userRoutes from './routes/user.routes';
 import exerciseRoutes from './routes/exercise.routes';
+import exerciseCategoriesRoutes from './routes/exerciseCategory.routes';
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.get("/", (req, res, next) => {
 // routes
 app.use('/api/user', userRoutes);
 app.use('/api/exercises', exerciseRoutes);
+app.use('/api/exercise-categories', exerciseCategoriesRoutes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

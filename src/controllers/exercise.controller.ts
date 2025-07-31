@@ -1,11 +1,12 @@
 import { NextFunction, Request, Response } from "express";
-import ExerciseModel from "../models/excercise.model";
+
 import ErrorHandler from "../utils/errorHandlerClass";
 import { uploadVideoToCloudinary } from "../utils/cloudinaryUploads/uploadVideoToCloudinary";
 import { uploadImageToCloudinary } from "../utils/cloudinaryUploads/uploadImageToCloudinary";
 import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudinaryUploads/extractPublicIdFromUrl";
 import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
 import mongoose from "mongoose";
+import ExerciseModel from "../models/exercise.model";
 
 // Add new exercise with atomicity
 export const addExerciseHandler = async (req: Request, res: Response, next: NextFunction) => {
@@ -249,8 +250,8 @@ export const deleteExerciseHandler = async (req: Request, res: Response, next: N
     }
 
     // Delete exercise from database
-    const excerciseDeleted = await ExerciseModel.findByIdAndDelete(id).session(session);
-    if(!excerciseDeleted) throw new ErrorHandler(404, 'Exercise not found');
+    const exerciseDeleted = await ExerciseModel.findByIdAndDelete(id).session(session);
+    if(!exerciseDeleted) throw new ErrorHandler(404, 'Exercise not found');
 
     await session.commitTransaction();
 
@@ -379,22 +380,6 @@ export const getExerciseByIdHandler = async (req: Request, res: Response, next: 
   }
 };
 
-// Get all categories
-export const getAllCategoriesHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const categories = await ExerciseModel.distinct('category');
-    
-    res.status(200).json({
-      success: true,
-      data: categories
-    });
-
-  } catch (error) {
-    console.error('getAllCategoriesHandler error', error);
-    next(error);
-  }
-};
-
 // Get all tags
 export const getAllTagsHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -422,8 +407,13 @@ export const getExercisesByCategoryHandler = async (req: Request, res: Response,
     }
 
     const skip = (Number(page) - 1) * Number(limit);
+    console.log();
     
     const exercises = await ExerciseModel.find({ category })
+      .populate({
+        path: 'category',
+        select: 'name'
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit));
@@ -459,7 +449,7 @@ export const searchExercisesHandler = async (req: Request, res: Response, next: 
     const sanitizeQuery = (input: string) => input.replace(/["]/g, '');
     const cleanQuery = sanitizeQuery(q);
     const processedQuery = cleanQuery.includes(' ') ? `"${cleanQuery}"` : cleanQuery;
-    
+
     const skip = (Number(page) - 1) * Number(limit);
 
     const exercises = await ExerciseModel.find(

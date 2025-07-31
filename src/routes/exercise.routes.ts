@@ -5,7 +5,6 @@ import {
   deleteExerciseHandler,
   getAllExercisesHandler,
   getExerciseByIdHandler,
-  getAllCategoriesHandler,
   getAllTagsHandler,
   getExercisesByCategoryHandler,
   searchExercisesHandler,
@@ -24,7 +23,6 @@ router.use(handleUploadError);
 
 // Static routes (specific paths first)
 router.route("/search").get(searchExercisesHandler);
-router.route("/categories").get(getAllCategoriesHandler);
 router.route("/tags").get(getAllTagsHandler);
 router.route("/body-parts").get(getAllBodyPartsHandler);
 router.route("/dashboard").get(getDashboardExercisesHandler);
