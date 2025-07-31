@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
-
+import { Response } from 'express';
 
 type TokenPayload = {
   userId: string;
@@ -17,6 +17,29 @@ export const generateToken = (payload: TokenPayload): string => {
   });
   return token;
 };
+
+// Generate JWT token and save as HTTP-only cookie
+export const generateTokenAndSaveCookies = (
+  payload: TokenPayload,
+  res: Response
+): string => {
+  
+  const token = jwt.sign(payload, process.env.JWT_SECRET!, {
+    expiresIn: '24h'
+  });
+
+  // Set HTTP-only cookie (secure, SameSite)
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: config.environment === 'production', // HTTPS only in production
+    sameSite: 'lax', // or 'lax' for cross-site compatibility
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+    path: '/', // Accessible across all routes
+  });
+
+  return token;
+};
+
 
 // Verify JWT token
 export const verifyToken = (token: string): TokenPayload => {

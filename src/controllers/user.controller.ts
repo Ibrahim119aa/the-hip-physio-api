@@ -9,7 +9,7 @@ import { sendAccountCredentialsEmail } from "../mailtrap/emails/sendAccountCrede
 import { dummyStripeEvent } from "../utils/DummyData";
 import ErrorHandler from "../utils/errorHandlerClass";
 import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
-import { generateToken } from "../utils/JwtHelpers";
+import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers";
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 
 
@@ -177,11 +177,49 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
   }
 };
 
-export const loginHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const adminLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    console.log('email', email);
-    console.log('password', password);
+    
+    if (!email || !password) {
+      throw new ErrorHandler(400, 'Email and password are required');
+    }
+
+    const user = await UserModel.findOne({ email });
+    if (!user) throw new ErrorHandler(404, 'Invalid credentials');
+    
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) throw new ErrorHandler(404, 'Invalid credentials');
+
+    // Generate JWT token and save in cookies
+    const token = generateTokenAndSaveCookies(
+      {
+        userId: user._id, 
+        email: user.email,
+      }, 
+      res
+    );
+    
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        purchasedPlans: user.purchasedPlans,
+        status: user.status
+      }
+    });
+
+  } catch (error) {
+    console.error('loginHandler error', error);
+    next(error)
+  }
+}
+
+export const userLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, password } = req.body;
     
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
@@ -247,4 +285,131 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
     next(error)
   }
 }
+
+// Admin role management functions
+export const assignAdminRoleHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (!userId) throw new ErrorHandler(400, 'User ID is required');
+    if (!role || !['user', 'admin'].includes(role)) {
+      throw new ErrorHandler(400, 'Valid role (user or admin) is required');
+    }
+
+    // Find user
+    const user = await UserModel.findById(userId);
+    if (!user) throw new ErrorHandler(404, 'User not found');
+
+    // Update role
+    user.role = role;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `User role updated to ${role} successfully`,
+      data: {
+        userId: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.error('assignAdminRoleHandler error', error);
+    next(error);
+  }
+};
+
+export const getUsersHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page = 1, limit = 20, role, status } = req.query;
+
+    const query: any = {};
+    if (role) query.role = role;
+    if (status) query.status = status;
+
+    const skip = (Number(page) - 1) * Number(limit);
+    
+    const users = await UserModel.find(query)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await UserModel.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / Number(limit)),
+        totalItems: total,
+        itemsPerPage: Number(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('getUsersHandler error', error);
+    next(error);
+  }
+};
+
+export const createFirstAdminHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, name, password } = req.body;
+
+    if (!email || !name || !password) {
+      throw new ErrorHandler(400, 'Email, name, and password are required');
+    }
+
+    // Check if any admin already exists
+    const existingAdmin = await UserModel.findOne({ role: 'admin' });
+    if (existingAdmin) {
+      throw new ErrorHandler(409, 'Admin already exists. Cannot create first admin.');
+    }
+
+    // Check if user with email already exists
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      throw new ErrorHandler(409, 'User with this email already exists');
+    }
+
+    // Create first admin
+    const adminUser = new UserModel({
+      email,
+      name,
+      password,
+      role: 'admin',
+      status: 'active'
+    });
+
+    await adminUser.save();
+
+    // Generate JWT token
+    const token = generateToken({
+      userId: adminUser._id,
+      email: adminUser.email
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'First admin created successfully',
+      token,
+      data: {
+        id: adminUser._id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role,
+        status: adminUser.status
+      }
+    });
+
+  } catch (error) {
+    console.error('createFirstAdminHandler error', error);
+    next(error);
+  }
+};
 

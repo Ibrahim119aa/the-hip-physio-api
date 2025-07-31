@@ -24,7 +24,7 @@ const dailyScheduleSchema = new mongoose.Schema({
 
 
 const rehabPlanSchema = new mongoose.Schema({
-  name: {
+  title: {
     type: String,
     required: true,
     unique: true,
@@ -35,6 +35,7 @@ const rehabPlanSchema = new mongoose.Schema({
     enum: ['Paid', 'Free'],
     required: true
   },
+  description: String,
   durationWeeks: {
     type: Number,
     required: true
@@ -64,4 +65,3 @@ const rehabPlanSchema = new mongoose.Schema({
 const RehabPlanModel = mongoose.models.RehabPlan || mongoose.model('RehabPlan', rehabPlanSchema);
 
 export default RehabPlanModel;
-

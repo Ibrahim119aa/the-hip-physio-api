@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
+import { TExerciseDocument } from "../types/excercise.types";
 
-const exerciseSchema = new mongoose.Schema({
+export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
   name: {
     type: String,
     required: true,
@@ -35,7 +36,26 @@ const exerciseSchema = new mongoose.Schema({
   tags: [{
     type: String, // e.g., ["Phase 1", "Pilates", "Hip Bursitis Recovery"]
     trim: true
-  }]
+  }],
+  bodyPart: {
+    type: String, // e.g., "Hip", "Knee", "Core"
+    required: true,
+    trim: true
+  },
+  difficulty: {
+    type: String, // e.g., "Beginner", "Intermediate", "Advanced"
+    enum: ["Beginner", "Intermediate", "Advanced"],
+    default: "Beginner"
+  },
+  estimatedDuration: {
+    type: Number, // Duration in minutes
+    required: false
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
 }, { timestamps: true });
 
 // Create a text index for searching by name, category, and tags

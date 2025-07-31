@@ -73,7 +73,8 @@ const userSchema = new mongoose.Schema<TUserDocument>({
   resetPasswordTokenExpiresAt: {
     type: Date,
     default: null,
-  }
+  },
+  therapistPhoto: String
   
 },{
   timestamps: true
