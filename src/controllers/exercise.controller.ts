@@ -451,22 +451,26 @@ export const getExercisesByCategoryHandler = async (req: Request, res: Response,
 export const searchExercisesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { q, page = 1, limit = 20 } = req.query;
-
-    if (!q) {
+    
+    if (!q || typeof q !== 'string') {
       throw new ErrorHandler(400, 'Search query is required');
     }
-
-    const skip = (Number(page) - 1) * Number(limit);
     
+    const sanitizeQuery = (input: string) => input.replace(/["]/g, '');
+    const cleanQuery = sanitizeQuery(q);
+    const processedQuery = cleanQuery.includes(' ') ? `"${cleanQuery}"` : cleanQuery;
+    
+    const skip = (Number(page) - 1) * Number(limit);
+
     const exercises = await ExerciseModel.find(
-      { $text: { $search: q as string } },
+      { $text: { $search: processedQuery } },
       { score: { $meta: "textScore" } }
     )
-    .sort({ score: { $meta: "textScore" } })
-    .skip(skip)
-    .limit(Number(limit));
+      .sort({ score: { $meta: "textScore" } })
+      .skip(skip)
+      .limit(Number(limit));
 
-    const total = await ExerciseModel.countDocuments({ $text: { $search: q as string } });
+    const total = await ExerciseModel.countDocuments({ $text: { $search: processedQuery } });
 
     res.status(200).json({
       success: true,
