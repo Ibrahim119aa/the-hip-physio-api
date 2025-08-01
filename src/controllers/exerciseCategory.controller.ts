@@ -1,32 +1,17 @@
 import { NextFunction, Request, Response } from "express";
 import ExerciseCategoryModel from "../models/exerciseCategory.model";
-import { ExerciseCategoryParamsSchema, ExerciseCategorySchema, ExerciseCategoryUpdateSchema, TExerciseCategoryParams, TExerciseCategoryRequest, TExerciseCategoryUpdateRequest } from "../validationSchemas/exerciseCategory,schema";
+import { ExerciseCategoryParamsSchema, exerciseCategorySchema, ExerciseCategoryUpdateSchema, TExerciseCategoryParams, TExerciseCategoryRequest, TExerciseCategoryUpdateRequest } from "../validationSchemas/exerciseCategory,schema";
 import ErrorHandler from "../utils/errorHandlerClass";
 import { parse } from "dotenv";
 
-// Get all categories
-export const getAllCategoriesHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const categories = await ExerciseCategoryModel.find();
-    
-    res.status(200).json({
-      success: true,
-      data: categories
-    });
-
-  } catch (error) {
-    console.error('getAllCategoriesHandler error', error);
-    next(error);
-  }
-};
-
+// Add a category
 export const addExerciseCategoryHandler = async (
   req: Request<{}, {}, TExerciseCategoryRequest>, 
   res: Response, 
   next: NextFunction
 ) => {
   try {
-    const parsed = ExerciseCategorySchema.safeParse(req.body);
+    const parsed = exerciseCategorySchema.safeParse(req.body);
 
     if (!parsed.success) {
       const errorMessages = parsed.error.issues.map(issue => issue.message).join(', ');
@@ -38,7 +23,7 @@ export const addExerciseCategoryHandler = async (
       title: { $regex: new RegExp(`^${title}$`, 'i') } 
     });
 
-    if(existingCategory) throw new Error('Exercise category already exists');
+    if(existingCategory) throw new ErrorHandler(409,'Exercise category already exists');
     
     const newCategory = new ExerciseCategoryModel({ title, description });
     await newCategory.save();
@@ -54,6 +39,7 @@ export const addExerciseCategoryHandler = async (
   }
 }
 
+// delete category
 export const deleteExerciseCategoryHandler = async ( 
   req: Request<TExerciseCategoryParams, {}, {}>,
   res: Response, 
@@ -83,6 +69,7 @@ export const deleteExerciseCategoryHandler = async (
   }
 }
 
+// update category
 export const updateExerciseCategoryHandler = async (
   req: Request<TExerciseCategoryParams, {}, TExerciseCategoryUpdateRequest>,
   res: Response,
@@ -141,3 +128,19 @@ export const updateExerciseCategoryHandler = async (
     next(error);
   }
 }
+
+// Get all categories
+export const getAllCategoriesHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await ExerciseCategoryModel.find();
+    
+    res.status(200).json({
+      success: true,
+      data: categories
+    });
+
+  } catch (error) {
+    console.error('getAllCategoriesHandler error', error);
+    next(error);
+  }
+};

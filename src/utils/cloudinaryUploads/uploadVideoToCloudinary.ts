@@ -3,7 +3,7 @@ import config from "../../config/config";
 import ErrorHandler from "../errorHandlerClass";
 
 // Upload video to Cloudinary
-export const uploadVideoToCloudinary = async (file: Express.Multer.File): Promise<string> => {
+export const uploadVideoToCloudinary = async (file: Express.Multer.File): Promise<{ url: string; duration: number }> => {
   try {
     if (!file) {
       throw new ErrorHandler(400, 'No video file provided');
@@ -37,7 +37,10 @@ export const uploadVideoToCloudinary = async (file: Express.Multer.File): Promis
       eager_notification_url: config.webhookUrl // Optional: for notifications
     });
 
-    return result.secure_url;
+    return {
+      url: result.secure_url,
+      duration: result.duration,
+    };
 
   } catch (error) {
     console.error('Error uploading video to Cloudinary:', error);
