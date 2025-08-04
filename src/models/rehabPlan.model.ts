@@ -65,3 +65,14 @@ const rehabPlanSchema = new mongoose.Schema({
 const RehabPlanModel = mongoose.models.RehabPlan || mongoose.model('RehabPlan', rehabPlanSchema);
 
 export default RehabPlanModel;
+
+// suggested rehab plan
+// {
+//   _id: ObjectId,
+//   name: String,
+//   price: Number,
+//   description: String,
+//   sessionIds: [ObjectId], // References to sessions
+//   createdBy: ObjectId, // Admin user reference
+//   createdAt: Date
+// }
