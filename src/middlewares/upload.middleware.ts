@@ -112,6 +112,37 @@ export const validateExerciseUpload = (req: Request, res: Response, next: NextFu
   }
 };
 
+// Validation middleware for exercise edit uploads
+export const validateExerciseUpdate = (
+  req: Request, 
+  res: Response, 
+  next: NextFunction
+) => {
+  try {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const videoFile = files?.video?.[0];
+    const thumbnailFile = files?.thumbnail?.[0];
+
+    // Validate video (if provided)
+    if (videoFile && !videoFile.mimetype.startsWith("video/")) {
+      throw new ErrorHandler(400, "Video must be a valid format (MP4, MOV, etc.)");
+    }
+
+    // Validate thumbnail (if provided)
+    if (thumbnailFile && !thumbnailFile.mimetype.startsWith("image/")) {
+      throw new ErrorHandler(400, "Thumbnail must be an image (JPEG, PNG)");
+    }
+
+    // Attach files to request (if they exist)
+    if (videoFile) req.videoFile = videoFile;
+    if (thumbnailFile) req.thumbnailFile = thumbnailFile;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Extend Request interface
 declare global {
   namespace Express {

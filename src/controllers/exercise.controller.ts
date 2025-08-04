@@ -7,7 +7,7 @@ import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudin
 import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
 import mongoose from "mongoose";
 import ExerciseModel from "../models/exercise.model";
-import { createExerciseSchema, TExerciseRequest } from "../validationSchemas/excercise.schema";
+import { createExerciseSchema, exerciseCategoryParamSchema, ExerciseParamsSchema, TExerciseParams, TExerciseRequest, TUpdateExerciseRequest, updateExerciseSchema } from "../validationSchemas/excercise.schema";
 
   type TUploadedVideoUrl = {
     url: string;
@@ -157,16 +157,30 @@ import { createExerciseSchema, TExerciseRequest } from "../validationSchemas/exc
   }
 };
 
-export const updateExerciseHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const updateExerciseHandler = async (req: Request<TExerciseParams, {}, TUpdateExerciseRequest>, res: Response, next: NextFunction) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-
+  console.log('startedupdating');
+  
   let uploadedVideoUrl: TUploadedVideoUrl | null = null;
   let uploadedThumbnailUrl = '';
 
   try {
-    const { id } = req.params;
-    const updateData = req.body;
+    const parsedParams = ExerciseParamsSchema.safeParse(req.params);
+    const parsedbody = updateExerciseSchema.safeParse(req.body);
+
+    if(!parsedParams.success) {
+      const erroMessages = parsedParams.error.issues.map((issue: any) => issue.message).join(", ");
+      throw new ErrorHandler(400, erroMessages);
+    }
+
+    if(!parsedbody.success) {
+      const erroMessages = parsedbody.error.issues.map((issue: any) => issue.message).join(", ");
+      throw new ErrorHandler(400, erroMessages);
+    }
+    
+    const { id } = parsedParams.data;
+    const updateData = parsedbody.data;
 
     if (!id) throw new ErrorHandler(400, 'Exercise ID is required');
 
@@ -253,7 +267,7 @@ export const updateExerciseHandler = async (req: Request, res: Response, next: N
 
 // Delete exercise
 export const deleteExerciseHandler = async (
-  req: Request,
+  req: Request<{}, {}, TExerciseParams>,
   res: Response,
   next: NextFunction
 ) => {
@@ -261,7 +275,15 @@ export const deleteExerciseHandler = async (
   session.startTransaction();
 
   try {
-    const { id } = req.params;
+    const parsedParams = ExerciseParamsSchema.safeParse(req.params);
+
+    if(!parsedParams.success) {
+      const erroMessages = parsedParams.error.issues.map((issue: any) => issue.message).join(", ");
+      throw new ErrorHandler(400, erroMessages);
+    }
+
+    const { id } = parsedParams.data;
+
     if (!id) throw new ErrorHandler(400, 'Exercise ID is required');
 
     const exercise = await ExerciseModel.findById(id).session(session);
@@ -488,38 +510,70 @@ export const getAllTagsHandler = async (req: Request, res: Response, next: NextF
 };
 
 // Get exercises by category
-export const getExercisesByCategoryHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const getExercisesByCategoryHandler = async (req: Request<TExerciseParams>, res: Response, next: NextFunction) => {
   try {
-    const { category } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const parsedParams = exerciseCategoryParamSchema.safeParse(req.params);
+    
+    if (!parsedParams.success) {
+      const erroMessages = parsedParams.error.issues.map((issue: any) => issue.message).join(", ");
+      throw new ErrorHandler(400, erroMessages);
+    }
+    const { category } = parsedParams.data;
 
     if (!category) {
       throw new ErrorHandler(400, 'Category is required');
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-    console.log();
-    
-    const exercises = await ExerciseModel.find({ category })
-      .populate({
-        path: 'category',
-        select: 'name'
-      })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+    // const exercises = await ExerciseModel.find({ category })
+    //   .populate({
+    //     path: 'category',
+    //     select: 'name'
+    //   })
+    //   .sort({ createdAt: -1 })
 
-    const total = await ExerciseModel.countDocuments({ category });
+       const exercisesByCategory = await ExerciseModel.aggregate([
+      // Match exercises by category
+      { $match: { category: new mongoose.Types.ObjectId(category) } },
+      
+      // Lookup to get category details
+      {
+        $lookup: {
+          from: 'exercisecategories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'categoryDetails'
+        }
+      },
+      
+      // Unwind the categoryDetails array
+      { $unwind: '$categoryDetails' },
+      
+      // Project only the fields we need
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          videoUrl: 1,
+          thumbnailUrl: 1,
+          reps: 1,
+          sets: 1,
+          tags: 1,
+          bodyPart: 1,
+          difficulty: 1,
+          estimatedDuration: 1,
+          createdAt: 1,
+          categoryName: '$categoryDetails.title',
+          categoryDescription: '$categoryDetails.description'
+        }
+      },
+      
+      // Sort by creation date
+      { $sort: { createdAt: -1 } }
+    ]);
 
     res.status(200).json({
       success: true,
-      data: exercises,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(total / Number(limit)),
-        totalItems: total,
-        itemsPerPage: Number(limit)
-      }
+      data: exercisesByCategory
     });
 
   } catch (error) {

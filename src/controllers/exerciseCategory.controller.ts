@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import ExerciseCategoryModel from "../models/exerciseCategory.model";
-import { ExerciseCategoryParamsSchema, exerciseCategorySchema, ExerciseCategoryUpdateSchema, TExerciseCategoryParams, TExerciseCategoryRequest, TExerciseCategoryUpdateRequest } from "../validationSchemas/exerciseCategory,schema";
+import { ExerciseCategoryParamsSchema, exerciseCategorySchema, ExerciseCategoryUpdateSchema, TExerciseCategoryRequest, TExerciseCategoryUpdateRequest } from "../validationSchemas/exerciseCategory.schema";
 import ErrorHandler from "../utils/errorHandlerClass";
-import { parse } from "dotenv";
+import { TExerciseParams } from "../validationSchemas/excercise.schema";
 
 // Add a category
 export const addExerciseCategoryHandler = async (
@@ -41,7 +41,7 @@ export const addExerciseCategoryHandler = async (
 
 // delete category
 export const deleteExerciseCategoryHandler = async ( 
-  req: Request<TExerciseCategoryParams, {}, {}>,
+  req: Request<TExerciseParams, {}, {}>,
   res: Response, 
   next: NextFunction
 ) => {
@@ -71,7 +71,7 @@ export const deleteExerciseCategoryHandler = async (
 
 // update category
 export const updateExerciseCategoryHandler = async (
-  req: Request<TExerciseCategoryParams, {}, TExerciseCategoryUpdateRequest>,
+  req: Request<TExerciseParams, {}, TExerciseCategoryUpdateRequest>,
   res: Response,
   next: NextFunction
 ) => {

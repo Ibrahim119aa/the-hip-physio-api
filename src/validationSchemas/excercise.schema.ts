@@ -1,6 +1,5 @@
 import z from "zod";
 import domPurify from "../config/domPurifyInstance";
-import mongoose, { Types } from "mongoose";
 
 export const createExerciseSchema = z.object({
   name: z.string()
@@ -39,4 +38,30 @@ export const createExerciseSchema = z.object({
     .optional(),
 });
 
+export const updateExerciseSchema = createExerciseSchema
+  .extend({
+    videoUrl: z.string()
+      .url({ message: "Invalid video URL format" })
+      .transform(value => domPurify.sanitize(value.trim()))
+      .optional(),
+    thumbnailUrl: z.string()
+      .url({ message: "Invalid thumbnail URL format" })
+      .transform(value => domPurify.sanitize(value.trim()))
+      .optional()
+  })
+  .partial();
+
+// Schema for the route params (id parameter)
+export const ExerciseParamsSchema = z.object({
+  id: z.string().min(1, { message: "ID is required" })
+});
+
+// Schema for the category params (category parameter)
+export const exerciseCategoryParamSchema = z.object({
+  category: z.string().min(1, { message: "category is required" })
+});
+
 export type TExerciseRequest = z.infer<typeof createExerciseSchema>;
+export type TUpdateExerciseRequest = z.infer<typeof updateExerciseSchema>;
+export type TExerciseParams = z.infer<typeof ExerciseParamsSchema>;
+export type TExerciseCategoryParams = z.infer<typeof exerciseCategoryParamSchema>;

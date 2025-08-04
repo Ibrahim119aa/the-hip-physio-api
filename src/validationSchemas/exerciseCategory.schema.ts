@@ -25,6 +25,5 @@ export const ExerciseCategoryUpdateSchema = exerciseCategorySchema
   );
 
 export type TExerciseCategoryRequest = z.infer<typeof exerciseCategorySchema>;
-export type TExerciseCategoryParams = z.infer<typeof ExerciseCategoryParamsSchema>;
 export type TExerciseCategoryUpdateRequest = z.infer<typeof ExerciseCategoryUpdateSchema>;
 

@@ -12,7 +12,7 @@ import {
   getAllBodyPartsHandler,
   getExercisesByBodyPartHandler
 } from "../controllers/exercise.controller";
-import { uploadVideoAndThumbnail, validateExerciseUpload, handleUploadError } from "../middlewares/upload.middleware";
+import { uploadVideoAndThumbnail, validateExerciseUpload, handleUploadError, validateExerciseUpdate } from "../middlewares/upload.middleware";
 import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 
@@ -31,7 +31,7 @@ router.route("/category/:category").get(getExercisesByCategoryHandler);
 router.route("/body-part/:bodyPart").get(getExercisesByBodyPartHandler);
 router.route("/:id")
   .get(getExerciseByIdHandler)
-  .put(isAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseUpload, updateExerciseHandler)
+  .put(isAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseUpdate, updateExerciseHandler)
   .delete(isAuthenticated, hasRole('admin'), deleteExerciseHandler);
 
 // CRUD operations (root path)
