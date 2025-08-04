@@ -21,5 +21,3 @@ export type TExerciseDocument = TExercise & Document;
 export type TCreateExerciseInput = Omit<TExercise, 'createdAt' | 'updatedAt' | 'isActive'> & {
   isActive?: boolean;
 };
-
-export type TUpdateExerciseInput = Partial<Omit<TCreateExerciseInput, 'createdBy'>>;
