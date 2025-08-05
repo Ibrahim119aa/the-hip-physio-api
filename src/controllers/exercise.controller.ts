@@ -386,7 +386,10 @@ export const deleteExerciseHandler = async (
 export const getAllExercisesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const exercises = await ExerciseModel.find()
-      .populate('category', 'title')
+      .populate({
+        path: 'category',
+        select: 'title'
+      })
       .sort({ createdAt: -1 })
 
     res.status(200).json({

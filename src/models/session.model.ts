@@ -20,11 +20,12 @@ const sessionSchema = new mongoose.Schema({
   }],
   difficultyRating: {
     type: String,
-    enum: ['easy', 'medium', 'hard'],
+    enum: ['too easy', 'just right', 'too hard'],
     required: true
   },
   userNotes: {
     type: String,
+    ref: 'User',
     trim: true
   },
   isComplete: {
