@@ -33,11 +33,11 @@ export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
     ref: 'ExerciseCategory',
     required: true
   },
-  categoryName: {
-    type: String, // e.g., "Hip / Strengthening", "Core", "Mobility"
-    required: true,
-    trim: true
-  },
+  // categoryName: {
+  //   type: String, // e.g., "Hip / Strengthening", "Core", "Mobility"
+  //   required: true,
+  //   trim: true
+  // },
   tags: [{
     type: String, // e.g., ["Phase 1", "Pilates", "Hip Bursitis Recovery"]
     trim: true

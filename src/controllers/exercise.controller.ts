@@ -385,81 +385,13 @@ export const deleteExerciseHandler = async (
 // Get all exercises with filtering and search
 export const getAllExercisesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { 
-      search, 
-      category, 
-      tags, 
-      bodyPart, 
-      phase, 
-      type,
-      difficulty,
-      active,
-      page = 1, 
-      limit = 20 
-    } = req.query;
-
-    const query: any = {};
-
-    // Text search
-    if (search) {
-      query.$text = { $search: search as string };
-    }
-
-    // Category filter
-    if (category) {
-      query.category = category;
-    }
-
-    // Tags filter (can be multiple tags)
-    if (tags) {
-      const tagArray = Array.isArray(tags) ? tags : [tags];
-      query.tags = { $in: tagArray };
-    }
-
-    // Body part filter
-    if (bodyPart) {
-      query.bodyPart = bodyPart;
-    }
-
-    // Phase filter
-    if (phase) {
-      const phaseStr = Array.isArray(phase) ? phase[0] : phase;
-      query.tags = { $in: [new RegExp(phaseStr as string, 'i')] };
-    }
-
-    // Type filter (e.g., Mobility, Strengthening, Advanced Rehab)
-    if (type) {
-      query.category = { $regex: type, $options: 'i' };
-    }
-
-    // Difficulty filter
-    if (difficulty) {
-      query.difficulty = difficulty;
-    }
-
-    // Active filter
-    if (active !== undefined) {
-      query.isActive = active === 'true';
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-    
-    const exercises = await ExerciseModel.find(query)
+    const exercises = await ExerciseModel.find()
+      .populate('category', 'title')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
-
-    const total = await ExerciseModel.countDocuments(query);
 
     res.status(200).json({
       success: true,
       data: exercises,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(total / Number(limit)),
-        totalItems: total,
-        itemsPerPage: Number(limit)
-      }
     });
 
   } catch (error) {
@@ -524,14 +456,7 @@ export const getExercisesByCategoryHandler = async (req: Request<TExerciseParams
       throw new ErrorHandler(400, 'Category is required');
     }
 
-    // const exercises = await ExerciseModel.find({ category })
-    //   .populate({
-    //     path: 'category',
-    //     select: 'name'
-    //   })
-    //   .sort({ createdAt: -1 })
-
-       const exercisesByCategory = await ExerciseModel.aggregate([
+      const exercisesByCategory = await ExerciseModel.aggregate([
       // Match exercises by category
       { $match: { category: new mongoose.Types.ObjectId(category) } },
       
