@@ -1,4 +1,4 @@
-import express, { urlencoded } from 'express';
+import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -8,8 +8,12 @@ import config from './config/config';
 import userRoutes from './routes/user.routes';
 import exerciseRoutes from './routes/exercise.routes';
 import exerciseCategoriesRoutes from './routes/exerciseCategory.routes';
+import rehabPlanRoutes from './routes/rehabPlan.routes';
+import morgan from 'morgan';
 
 const app = express();
+
+app.use(morgan('dev'))
 
 app.use(helmet());
 app.use(cors({
@@ -37,6 +41,7 @@ app.get("/", (req, res, next) => {
 app.use('/api/user', userRoutes);
 app.use('/api/exercises', exerciseRoutes);
 app.use('/api/exercise-categories', exerciseCategoriesRoutes);
+app.use('/api/rehab-plans', rehabPlanRoutes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

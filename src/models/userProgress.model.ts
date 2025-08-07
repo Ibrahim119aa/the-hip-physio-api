@@ -1,43 +1,5 @@
 import mongoose from "mongoose";
 
-// Sub-schema for exercises within a session
-const ExerciseProgressSchema = new mongoose.Schema({
-  exerciseId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Exercise', // Reference to Exercise model
-    required: true
-  },
-  irritabilityScore: {
-    type: Number,
-    min: 0,
-    max: 10,
-    required: true
-  }
-});
-
-// Sub-schema for sessions
-const SessionProgressSchema = new mongoose.Schema({
-  sessionId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Session', // Reference to Session model
-    required: true
-  },
-  isCompleted: {
-    type: Boolean,
-    default: false
-  },
-  completedAt: {
-    type: Date,
-    default: null // Will be set when session is completed
-  },
-  difficultyRating: {
-    type: String,
-    enum: ['easy', 'medium', 'hard'],
-    required: true
-  },
-  exercises: [ExerciseProgressSchema] // Array of exercise progress
-});
-
 // Main Progress Tracking schema
 const ProgressTrackingSchema = new mongoose.Schema({
   userId: {
@@ -50,7 +12,10 @@ const ProgressTrackingSchema = new mongoose.Schema({
     ref: 'RehabPlan', // Reference to RehabPlan model
     required: true
   },
-  sessions: [SessionProgressSchema],
+  sessions: [{
+    type: mongoose.Types. ObjectId,
+    ref: 'Session'
+  }], 
   progressPercent: {
     type: Number,
     default: 0,
@@ -81,29 +46,66 @@ ProgressTrackingSchema.pre('save', function(next) {
 // Create the model
 const ProgressTracking = mongoose.model('ProgressTracking', ProgressTrackingSchema);
 
-module.exports = ProgressTracking;
+export default ProgressTracking;
 
-// suggested schema
-// {
-//   _id: ObjectId,
-//   userId: ObjectId,
-//   rehabPlanId: ObjectId,
-//   sessions: [
-//     {
-//       sessionId: ObjectId,
-//       isCompleted: Boolean,
-//       completedAt: Date,
-//       difficultyRating: String, // "easy", "medium", "hard"
-//       exercises: [
-//         {
-//           exerciseId: ObjectId,
-//           irritabilityScore: Number // 0-10
-//         }
-//       ]
+
+// const ProgressTrackingSchema = new mongoose.Schema({
+//   userId: {
+//     type: mongoose.Schema.Types.ObjectId,
+//     ref: 'User',
+//     required: true
+//   },
+//   rehabPlanId: {
+//     type: mongoose.Schema.Types.ObjectId,
+//     ref: 'RehabPlan',
+//     required: true
+//   },
+
+//   // More granular tracking per session per day
+//   completedSessions: [{
+//     sessionId: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: 'Session',
+//       required: true
+//     },
+//     week: {
+//       type: Number,
+//       required: true
+//     },
+//     day: {
+//       type: Number,
+//       required: true
+//     },
+//     completedAt: {
+//       type: Date,
+//       default: Date.now
+//     },
+//     completed: {
+//       type: Boolean,
+//       default: true
 //     }
-//   ],
-//   progressPercent: Number, // Based on sessions completed
-//   resiliencyScore: Number, // Custom metric you define
-//   streakCount: Number, // Tracks for this plan
-//   lastUpdated: Date
-// }
+//   }],
+
+//   // Overall progress and metrics
+//   progressPercent: {
+//     type: Number,
+//     default: 0,
+//     min: 0,
+//     max: 100
+//   },
+//   resiliencyScore: {
+//     type: Number,
+//     default: 0
+//   },
+//   streakCount: {
+//     type: Number,
+//     default: 0,
+//     min: 0
+//   },
+
+//   lastUpdated: {
+//     type: Date,
+//     default: Date.now
+//   }
+// }, { timestamps: true });
+
