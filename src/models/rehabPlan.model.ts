@@ -119,14 +119,17 @@ const rehabPlanSchema = new mongoose.Schema({
   },
   planType: {
     type: String,
-    enum: ['Paid', 'Free'],
+    enum: ['paid', 'free'],
     required: true
   },
   planDurationInWeeks: {
     type: Number,
     required: true
   },
-
+  phase: {
+    type: String,
+    required: true
+  },
   // Structured weekly/daily schedule
   schedule: [
     {
@@ -143,9 +146,20 @@ const rehabPlanSchema = new mongoose.Schema({
         ref: 'Session',
         required: true
       }]
-    }
+    },
   ],
-
+  
+  stats: {
+    exerciseCount: {
+      type: Number,
+      default: 0 // Static value for now, can be updated later
+    },
+    totalMinutes: {
+      type: Number,
+      default: 0 // Static value for now, can be updated later
+    },
+  },
+  
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
