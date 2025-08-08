@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 
 const sessionSchema = new mongoose.Schema({
-  titlte: {
+  // Admin-filled fields (required at creation)
+  title: {
     type: String,
     required: true
   },
@@ -14,26 +15,41 @@ const sessionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  dayNumber: {
+    type: Number,
+    required: true
+  },
   exercises: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Exercise'
   }],
+
+  // User-filled fields (not required initially)
   difficultyRating: {
     type: String,
     enum: ['too easy', 'just right', 'too hard'],
-    required: true
+    required: false
+  },
+  irritabilityScore: {
+    type: Number,
+    min: 0,
+    max: 10,
+    required: false
   },
   userNotes: {
     type: String,
-    ref: 'User',
-    trim: true
+    trim: true,
+    required: false
   },
   isComplete: {
     type: Boolean,
     default: false
-  },
-}, { timestamps: true})
+  }
+}, { timestamps: true });
 
+const SessionModel = mongoose.models.Session || mongoose.model('Session', sessionSchema);
+
+export default SessionModel;
 
 
   // irritability_rating: Number, // Assuming range 0-10 is validated elsewhere

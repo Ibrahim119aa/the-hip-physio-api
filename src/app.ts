@@ -9,15 +9,19 @@ import userRoutes from './routes/user.routes';
 import exerciseRoutes from './routes/exercise.routes';
 import exerciseCategoriesRoutes from './routes/exerciseCategory.routes';
 import rehabPlanRoutes from './routes/rehabPlan.routes';
+import sessionRoutes from './routes/session.routes';
 import morgan from 'morgan';
 
 const app = express();
 
 app.use(morgan('dev'))
+const allowedOrigins = [
+  'http://localhost:4000',
+]
 
 app.use(helmet());
 app.use(cors({
-  origin: config.crossOrigin,
+  origin: 'http://localhost:3000',
   credentials: true
 }));
 
@@ -42,6 +46,8 @@ app.use('/api/user', userRoutes);
 app.use('/api/exercises', exerciseRoutes);
 app.use('/api/exercise-categories', exerciseCategoriesRoutes);
 app.use('/api/rehab-plans', rehabPlanRoutes);
+app.use('/api/session', sessionRoutes);
+
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
