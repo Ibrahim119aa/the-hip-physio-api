@@ -4,7 +4,7 @@ import { createSessionHandler, getExerciseBySessionId, getSessionByIdHandler } f
 const router = Router();
 
 router.route("/").post(createSessionHandler);
-router.route("/:sessionId/exercise/:exerciseId").get(getExerciseBySessionId);
+router.route("/:sessionId/:planId/:exerciseId").get(getExerciseBySessionId);
 router.route("/:sessionId").get(getSessionByIdHandler);
 
 export default router;

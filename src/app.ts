@@ -5,12 +5,13 @@ import cookieParser from 'cookie-parser';
 import notFoundHandler from './middlewares/notFoundHandler';
 import globalErrorHandler from './middlewares/globalErrorHandler.middleware';
 import config from './config/config';
+import morgan from 'morgan';
 import userRoutes from './routes/user.routes';
 import exerciseRoutes from './routes/exercise.routes';
 import exerciseCategoriesRoutes from './routes/exerciseCategory.routes';
 import rehabPlanRoutes from './routes/rehabPlan.routes';
 import sessionRoutes from './routes/session.routes';
-import morgan from 'morgan';
+import userProgressRoutes from './routes/userProgess.routes';
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/exercises', exerciseRoutes);
 app.use('/api/exercise-categories', exerciseCategoriesRoutes);
 app.use('/api/rehab-plans', rehabPlanRoutes);
 app.use('/api/session', sessionRoutes);
+app.use('/api/user-progress', userProgressRoutes);
 
 
 app.use(notFoundHandler);

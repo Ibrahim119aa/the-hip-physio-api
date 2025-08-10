@@ -117,7 +117,7 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
     }
 
     const rehabPlan = await RehabPlanModel.findById(planId)
-      .populate({
+    .populate({
         path: 'category',
         select: 'title description' // Exclude just the version key, keep all other fields
       })
@@ -129,7 +129,25 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
 
         }
       })
-      .lean();
+      
+      const numberOfWeeks = new Set(rehabPlan.schedule?.map((week: any) => week.week)).size;
+
+      const numberOfSessions = rehabPlan.schedule?.map((week: any) => week.sessions);
+      const numberOfDays = rehabPlan.schedule?.map((day: any) => day.day);
+      const totalDurationInSeconds = rehabPlan.schedule
+        .flatMap((week: any) => week.sessions)
+        .flatMap((session: any) => session.exercises)
+        .reduce((sum: number, exercise: any) => sum + (exercise.estimatedDuration || 0), 0)
+      const totalDurationInMinutes = Math.ceil(totalDurationInSeconds / 60);
+
+            
+
+      console.log('rehabPlans',rehabPlan);
+      console.log('numberOfWeeks', numberOfWeeks);
+      console.log('numberOfSessions', numberOfSessions);
+      console.log('numberOfDays', numberOfDays.length);
+      console.log('totalDuration', totalDurationInMinutes);
+
 
     if (!rehabPlan) {
       throw new ErrorHandler(404, 'Rehab plan not found');
@@ -137,7 +155,13 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
 
     res.status(200).json({
       success: true,
-      data: rehabPlan
+      data: rehabPlan,
+      stats: {
+        numberOfWeeks: numberOfWeeks,
+        numberOfSessions: numberOfSessions.length,
+        numberOfDays: numberOfDays.length,
+        totalDuration: totalDurationInMinutes
+      }
     });
 
   } catch (error) {
@@ -206,7 +230,8 @@ export const getAllRehabPlansHandler = async(req: Request, res: Response, next: 
     if(!rehabPlans || rehabPlans.length === 0) {
       throw new ErrorHandler(404, 'No rehab plans found');
     }
-
+        
+    // const totalExercises = rehabPlans
     // 2. Enhance each plan with stats (using your static values for now)
     // const enhancedPlans = rehabPlans.map(plan => ({
     //   ...plan,
