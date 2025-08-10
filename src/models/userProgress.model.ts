@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
+import { TUserProgressDocument } from "../types/userProgress.types";
 
-// Main Progress Tracking schema
-const ProgressTrackingSchema = new mongoose.Schema({
+const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User', // Reference to User model
@@ -12,10 +12,29 @@ const ProgressTrackingSchema = new mongoose.Schema({
     ref: 'RehabPlan', // Reference to RehabPlan model
     required: true
   },
-  sessions: [{
-    type: mongoose.Types. ObjectId,
-    ref: 'Session'
-  }], 
+
+  // Tracks which specific exercises the user has completed and their feedback
+  completedExercises: [{
+    exerciseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exercise' },
+    irritabilityScore: { type: Number, min: 0, max: 10 },
+    completedAt: { type: Date, default: Date.now }
+  }],
+
+  // Tracks which sessions the user has completed and their feedback
+  completedSessions: [{
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
+    difficultyRating: { type: String, enum: ['too easy', 'just right', 'too hard'] },
+    completedAt: { type: Date, default: Date.now }
+  }],
+
+  currentWeek: {
+    type: Number,
+    default: 1
+  },
+  currentDay: {
+    type: Number,
+    default: 1
+  },
   progressPercent: {
     type: Number,
     default: 0,
@@ -38,15 +57,18 @@ const ProgressTrackingSchema = new mongoose.Schema({
 });
 
 // Middleware to update lastUpdated timestamp before saving
-ProgressTrackingSchema.pre('save', function(next) {
+userProgressSchema.pre('save', function(next) {
   this.lastUpdated = new Date();
   next();
 });
 
-// Create the model
-const ProgressTracking = mongoose.model('ProgressTracking', ProgressTrackingSchema);
+// Ensure a user has only one progress document per plan
+userProgressSchema.index({ userId: 1, rehabPlanId: 1 }, { unique: true });
 
-export default ProgressTracking;
+// Create the model
+const UserProgressModel = mongoose.models.UserProgress || mongoose.model<TUserProgressDocument>('UserProgress', userProgressSchema);
+
+export default UserProgressModel;
 
 
 // const ProgressTrackingSchema = new mongoose.Schema({

@@ -2,26 +2,49 @@ import { NextFunction, Request, Response } from "express";
 import ErrorHandler from "../utils/errorHandlerClass";
 import RehabPlanModel from "../models/rehabPlan.model";
 import RehabPlanCategoryModel from "../models/rehabPlanCategory.model";
+import UserProgressModel from "../models/userProgress.model";
 
 export const createRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
-    const demoPlan = {
-      name: 'testing',
-      description: 'A bespoke app-based rehabilitation guide to help with rehab after FAI surgery',
-      price: 135,
-      planType: 'paid',
-      planDurationInWeeks: 5,
-      phase: 'phase 1',
-      schedule: [], // Add empty schedule for now
-      category: ["6894f582c9b7fc9f49774256"],
-      stats: {
-        exerciseCount: 19, // Static value for now
-        totalMinutes: 90, // Static value for now
-      },
-      createdBy: req.userId
-    };
+    console.log('req.body', req.body);
+    
+    const {
+      name,
+      description,
+      price,
+      planType,
+      planDurationInWeeks,
+      phase,
+      category
+    } = req.body;
 
-    const createdPlan = await RehabPlanModel.create(demoPlan);
+    // const demoPlan = {
+    //   name: 'testing',
+    //   description: 'A bespoke app-based rehabilitation guide to help with rehab after FAI surgery',
+    //   price: 135,
+    //   planType: 'paid',
+    //   planDurationInWeeks: 5,
+    //   phase: 'phase 1',
+    //   schedule: [], // Add empty schedule for now
+    //   category: ["6894f582c9b7fc9f49774256"],
+    //   stats: {
+    //     exerciseCount: 19, // Static value for now
+    //     totalMinutes: 90, // Static value for now
+    //   },
+    //   createdBy: req.userId
+    // };
+    const savePlan = new RehabPlanModel({
+      name,
+      description,
+      price,
+      planType,
+      planDurationInWeeks,
+      phase,
+      category,
+      createdBy: "688a482be8f40c8e173608c6"
+    });
+    
+    const createdPlan = await savePlan.save();
 
     res.status(201).json({
       success: true,
@@ -103,7 +126,7 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
         populate: { // Nested population for exercises
           path: 'exercises',
           model: 'Exercise'
-          // No select = get all exercise fields
+
         }
       })
       .lean();
@@ -122,6 +145,58 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
     next(error)
   }
 }
+
+export const getRehabPlanByIdHandler2 = async (req, res, next) => {
+  try {
+    const { planId } = req.params;
+    const userId = req.user?._id; // assuming auth middleware
+
+    if (!planId) throw new ErrorHandler(400, 'Plan ID is required');
+
+    const rehabPlan = await RehabPlanModel.findById(planId)
+      .populate({
+        path: 'category',
+        select: 'title description'
+      })
+      .populate({
+        path: 'schedule.sessions',
+        populate: {
+          path: 'exercises',
+          model: 'Exercise'
+        }
+      })
+      .lean();
+
+    if (!rehabPlan) throw new ErrorHandler(404, 'Rehab plan not found');
+
+    let userProgress = await UserProgressModel.findOne({ userId, rehabPlanId: planId }).lean();
+    if (!userProgress) {
+      userProgress = { completedExercises: [], completedSessions: [] };
+    }
+
+    // Merge completion flags
+    rehabPlan.schedule = rehabPlan.schedule.map(day => {
+      const sessionsWithStatus = day.sessions.map(session => {
+        const isSessionCompleted = userProgress.completedSessions?.includes(session._id.toString());
+        const exercisesWithStatus = session.exercises.map(ex => ({
+          ...ex,
+          isCompleted: userProgress.completedExercises?.includes(ex._id.toString())
+        }));
+        return { ...session, isCompleted: isSessionCompleted, exercises: exercisesWithStatus };
+      });
+      return { ...day, sessions: sessionsWithStatus };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rehabPlan
+    });
+  } catch (error) {
+    console.error('getRehabPlanByIdHandler error:', error);
+    next(error);
+  }
+};
+
 
 export const getAllRehabPlansHandler = async(req: Request, res: Response, next: NextFunction) => {
  try {

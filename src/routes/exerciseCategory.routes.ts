@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { addExerciseCategoryHandler, deleteExerciseCategoryHandler, getAllCategoriesHandler, updateExerciseCategoryHandler } from "../controllers/exerciseCategory.controller";
+import { addExerciseCategoryHandler, deleteExerciseCategoryHandler, getAllCategoriesHandler, updateExerciseCategoryHandler } from "../controllers/exerciseCategory.controllers";
 import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 

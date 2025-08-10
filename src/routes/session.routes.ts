@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { createSessionHandler } from "../controllers/session.controller";
+import { createSessionHandler, getExerciseBySessionId, getSessionByIdHandler } from "../controllers/session.controllers";
 
 const router = Router();
 
-router.route("/:sessionId").post(createSessionHandler);
 router.route("/").post(createSessionHandler);
+router.route("/:sessionId/exercise/:exerciseId").get(getExerciseBySessionId);
+router.route("/:sessionId").get(getSessionByIdHandler);
 
 export default router;
