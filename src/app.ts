@@ -12,6 +12,7 @@ import exerciseCategoriesRoutes from './routes/exerciseCategory.routes';
 import rehabPlanRoutes from './routes/rehabPlan.routes';
 import sessionRoutes from './routes/session.routes';
 import userProgressRoutes from './routes/userProgess.routes';
+import educationalVideosRoutes from './routes/educationalVideos.routes';
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/exercise-categories', exerciseCategoriesRoutes);
 app.use('/api/rehab-plans', rehabPlanRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/user-progress', userProgressRoutes);
+app.use('/api/educational-videos', educationalVideosRoutes);
 
 
 app.use(notFoundHandler);

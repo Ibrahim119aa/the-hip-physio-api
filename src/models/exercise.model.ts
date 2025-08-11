@@ -66,7 +66,7 @@ export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
 // Create a text index for searching by name, category, and tags
 exerciseSchema.index(
   { name: 'text', categoryName: 'text', tags: 'text', bodyPart: 'text' },
-  { name: "exercise_search_index" } // Custom name
+  { name: "exercise_search_index" }
 );
 
 const ExerciseModel = mongoose.models.Exercise || mongoose.model('Exercise', exerciseSchema);
