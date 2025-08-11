@@ -76,7 +76,7 @@ export const handleUploadError = (error: any, req: Request, res: Response, next:
 };
 
 // Validation middleware for exercise uploads
-export const validateExerciseUpload = (req: Request, res: Response, next: NextFunction) => {
+export const validateExerciseVideoUpload = (req: Request, res: Response, next: NextFunction) => {
   try {
     console.log('Received files:', req.files);
     console.log('Request body:', req.body);

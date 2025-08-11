@@ -53,7 +53,7 @@ export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
     default: "Beginner"
   },
   estimatedDuration: {
-    type: Number, // Duration in minutes
+    type: Number,
     required: false
   },
   createdBy: {
