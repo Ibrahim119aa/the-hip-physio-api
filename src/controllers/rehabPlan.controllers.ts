@@ -119,7 +119,7 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
     const rehabPlan = await RehabPlanModel.findById(planId)
     .populate({
         path: 'category',
-        select: 'title description' // Exclude just the version key, keep all other fields
+        select: 'title description'
       })
       .populate({
         path: 'schedule.sessions',
@@ -170,7 +170,7 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
   }
 }
 
-export const getRehabPlanByIdHandler2 = async (req, res, next) => {
+export const getRehabPlanByIdHandler2 = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { planId } = req.params;
     const userId = req.user?._id; // assuming auth middleware
@@ -189,20 +189,19 @@ export const getRehabPlanByIdHandler2 = async (req, res, next) => {
           model: 'Exercise'
         }
       })
-      .lean();
 
     if (!rehabPlan) throw new ErrorHandler(404, 'Rehab plan not found');
 
-    let userProgress = await UserProgressModel.findOne({ userId, rehabPlanId: planId }).lean();
+    let userProgress = await UserProgressModel.findOne({ userId, rehabPlanId: planId });
     if (!userProgress) {
       userProgress = { completedExercises: [], completedSessions: [] };
     }
 
     // Merge completion flags
-    rehabPlan.schedule = rehabPlan.schedule.map(day => {
-      const sessionsWithStatus = day.sessions.map(session => {
+    rehabPlan.schedule = rehabPlan.schedule.map((day: any) => {
+      const sessionsWithStatus = day.sessions.map((session: any) => {
         const isSessionCompleted = userProgress.completedSessions?.includes(session._id.toString());
-        const exercisesWithStatus = session.exercises.map(ex => ({
+        const exercisesWithStatus = session.exercises.map((ex: any) => ({
           ...ex,
           isCompleted: userProgress.completedExercises?.includes(ex._id.toString())
         }));
@@ -225,7 +224,20 @@ export const getRehabPlanByIdHandler2 = async (req, res, next) => {
 export const getAllRehabPlansHandler = async(req: Request, res: Response, next: NextFunction) => {
  try {
     // 1. Fetch all rehab plans from MongoDB
-    const rehabPlans = await RehabPlanModel.find({}).lean();
+    const rehabPlans = await RehabPlanModel.find()
+      .populate({
+        path: 'category',
+        select: 'title description'
+      })
+      .populate({
+        path: 'schedule.sessions',
+        populate: { // Nested population for exercises
+          path: 'exercises',
+          model: 'Exercise'
+
+        }
+      })
+      .lean();
 
     if(!rehabPlans || rehabPlans.length === 0) {
       throw new ErrorHandler(404, 'No rehab plans found');
