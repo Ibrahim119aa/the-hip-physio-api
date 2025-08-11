@@ -7,7 +7,7 @@ import {
   createFirstAdminHandler,
   userLoginHandler,
   adminLoginHandler
-} from "../controllers/user.controller";
+} from "../controllers/user.controllers";
 import {  } from "../middlewares/isAdmin.middleware";
 import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";

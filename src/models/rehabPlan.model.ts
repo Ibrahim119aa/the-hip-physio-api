@@ -130,6 +130,11 @@ const rehabPlanSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  category: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'RehabPlanCategory',
+    required: true
+  }],
   // Structured weekly/daily schedule
   schedule: [
     {
@@ -148,18 +153,6 @@ const rehabPlanSchema = new mongoose.Schema({
       }]
     },
   ],
-  
-  stats: {
-    exerciseCount: {
-      type: Number,
-      default: 0 // Static value for now, can be updated later
-    },
-    totalMinutes: {
-      type: Number,
-      default: 0 // Static value for now, can be updated later
-    },
-  },
-  
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
