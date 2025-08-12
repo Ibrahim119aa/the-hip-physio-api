@@ -1,5 +1,5 @@
 import { z } from "zod";
-import domPurify from "dompurify"; // Assuming you have this imported
+import domPurify from "../config/domPurifyInstance";
 
 export const educationVideoSchema = z.object({
   title: z.string()
@@ -20,7 +20,7 @@ export const educationVideoSchema = z.object({
     z.string()
       .min(1, "Tag cannot be empty")
       .transform(value => domPurify.sanitize(value.trim()))
-  ).nonempty("At least one tag is required"),
+  ).optional(),
 });
 
 export type TEducationVideoRequest = z.infer<typeof educationVideoSchema>;

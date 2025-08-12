@@ -1,19 +1,20 @@
 import mongoose from "mongoose";
 import EducationalVideoModel from "../models/educationalVideo.model";
 import { Request, Response, NextFunction} from 'express';
-import { educationVideoSchema } from "../validationSchemas/educationalVideo.schema";
+import { educationVideoSchema, TEducationVideoRequest } from "../validationSchemas/educationalVideo.schema";
 import ErrorHandler from "../utils/errorHandlerClass";
 import { uploadEducatioanlVideoToCloudinary } from "../utils/cloudinaryUploads/uploadEducatioanlVideoToCloudinary";
 import { uploadEducationalThumbnailToCloudinary } from "../utils/cloudinaryUploads/uploadEducationalThumbnailToCloudinary";
 import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudinaryUploads/extractPublicIdFromUrl";
 import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
+import { uploadVideo } from "../utils/cloudinaryUploads/uploadVideo";
 
 type TUploadedVideoUrl = {
   url: string;
   duration: number;
 };
 
-export const createEducationalVideoHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const createEducationalVideoHandler = async(req: Request<{}, {}, TEducationVideoRequest>, res: Response, next: NextFunction) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -21,6 +22,9 @@ export const createEducationalVideoHandler = async(req: Request, res: Response, 
   let uploadedThumbnailUrl = '';
 
   try{
+    console.log('req.body', req.body);
+    console.log('req.videoFile', req.files);
+    
     const parsedBody = educationVideoSchema.safeParse(req.body);
     
     if(!parsedBody.success) {
@@ -142,6 +146,55 @@ export const createEducationalVideoHandler = async(req: Request, res: Response, 
   }
 }
 
+// export const deleteEducationalVideoHandler = async (req: Request, res: Response, next: NextFunction) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const { id } = req.params;
+
+//     if (!id) throw new ErrorHandler(400, 'Educational video ID is required');
+
+//     const educationalVideo = await EducationalVideoModel.findById(id).session(session);
+//     if (!educationalVideo) throw new ErrorHandler(404, 'Educational video not found');
+
+//     // Delete associated Cloudinary resources
+//     const deletePromises: Promise<any>[] = [];
+
+//     if (educationalVideo.videoUrl) {
+//       const videoPublicId = extractPublicIdFromUrl(educationalVideo.videoUrl);
+//       if (videoPublicId) {
+//         deletePromises.push(deleteFromCloudinary(videoPublicId, 'video'));
+//       }
+//     }
+
+//     if (educationalVideo.thumbnailUrl) {
+//       const thumbnailPublicId = extractPublicIdFromUrl(educationalVideo.thumbnailUrl);
+//       if (thumbnailPublicId) {
+//         deletePromises.push(deleteFromCloudinary(thumbnailPublicId, 'image'));
+//       }
+//     }
+
+//     await Promise.all(deletePromises);
+
+//     await EducationalVideoModel.findByIdAndDelete(id).session(session);
+
+//     await session.commitTransaction();
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Educational video deleted successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('deleteEducationalVideoHandler error', error);
+//     await session.abortTransaction();
+//     next(error);
+//   } finally {
+//     session.endSession();
+//   }
+// };
+
 // Get all educational videos
 export const getAllEducationalVideosHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -162,3 +215,22 @@ export const getAllEducationalVideosHandler = async (req: Request, res: Response
     next(error);
   }
 };
+
+// example handler for videos
+export async function uploadVideoHandler(req: Request, res: Response) {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({ message: "No video file provided" });
+    }
+
+    const uploaded = await uploadVideo(req.file.buffer, {
+      folder: "hip-physio/educational/videos",
+      context: { originalname: req.file.originalname },
+    });
+
+    res.status(201).json({ message: "Video uploaded", ...uploaded });
+  } catch (err: any) {
+    console.error("Cloudinary upload error:", err);
+    res.status(500).json({ message: "Upload failed", error: err.message });
+  }
+}
