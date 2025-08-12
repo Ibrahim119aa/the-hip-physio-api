@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createEducationalVideoCategory } from "../controllers/educationalVideosCategory.controllers";
+import { createEducationalVideoCategoryHandler, getAllEducationalVideoCategoriesHandler } from "../controllers/educationalVideosCategory.controllers";
 import { createEducationalVideoHandler, getAllEducationalVideosHandler } from "../controllers/educationalVideos.controllers";
 import { uploadVideoAndThumbnail } from "../middlewares/upload.middleware";
 
@@ -9,6 +9,9 @@ router.route("/")
   .post(uploadVideoAndThumbnail, createEducationalVideoHandler)
   .get(getAllEducationalVideosHandler)
   
-router.route("/category").post(createEducationalVideoCategory);
+// categories routes
+router.route("/category")
+  .post(uploadVideoAndThumbnail, createEducationalVideoCategoryHandler)
+  .get(getAllEducationalVideoCategoriesHandler);
 
 export default router;

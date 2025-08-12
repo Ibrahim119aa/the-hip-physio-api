@@ -1,8 +1,26 @@
+import mongoose from "mongoose";
 import EducationalVideoModel from "../models/educationalVideo.model";
 import { Request, Response, NextFunction} from 'express';
+import { educationVideoSchema } from "../validationSchemas/educationalVideo.schema";
+
+type TUploadedVideoUrl = {
+  url: string;
+  duration: number;
+};
 
 export const createEducationalVideoHandler = async(req: Request, res: Response, next: NextFunction) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  let uploadedVideoUrl: TUploadedVideoUrl | null = null;
+  let uploadedThumbnailUrl = '';
+
   try{
+    const parsedBody = educationVideoSchema.safeParse(req.body);
+    
+    if(!parsedBody.success) {
+      const errorMessages = parsedBody.error.issues.map(issue => issue.message).join(', ');
+    }
     console.log('api called')
     console.log('body', req.body)
     const {
