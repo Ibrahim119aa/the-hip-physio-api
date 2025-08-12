@@ -2,7 +2,7 @@ import { NextFunction, Response, Request} from "express";
 import EducationalVideosCategoryModel from "../models/educationalVideosCategory.model";
 import ErrorHandler from "../utils/errorHandlerClass";
 
-export const createEducationalVideoCategory = async (req: Request, res: Response, next: NextFunction) => {
+export const createEducationalVideoCategoryHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { title, description } = req.body;
 
@@ -25,6 +25,21 @@ export const createEducationalVideoCategory = async (req: Request, res: Response
     });
   } catch (error) {
     console.error('createEducationalVideoCategory Error:', error);
+    next(error)
+  }
+}
+
+export const getAllEducationalVideoCategoriesHandler = async(req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await EducationalVideosCategoryModel.find();
+
+    res.status(200).json({
+      success: true,
+      categories,
+    });
+
+  } catch (error) {
+    console.error('getAllEducationalVideoCategories Error:', error);
     next(error)
   }
 }
