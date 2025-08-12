@@ -140,15 +140,6 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
         .reduce((sum: number, exercise: any) => sum + (exercise.estimatedDuration || 0), 0)
       const totalDurationInMinutes = Math.ceil(totalDurationInSeconds / 60);
 
-            
-
-      console.log('rehabPlans',rehabPlan);
-      console.log('numberOfWeeks', numberOfWeeks);
-      console.log('numberOfSessions', numberOfSessions);
-      console.log('numberOfDays', numberOfDays.length);
-      console.log('totalDuration', totalDurationInMinutes);
-
-
     if (!rehabPlan) {
       throw new ErrorHandler(404, 'Rehab plan not found');
     }
@@ -223,7 +214,7 @@ export const getRehabPlanByIdHandler2 = async (req: Request, res: Response, next
 
 export const getAllRehabPlansHandler = async(req: Request, res: Response, next: NextFunction) => {
  try {
-    // 1. Fetch all rehab plans from MongoDB
+
     const rehabPlans = await RehabPlanModel.find()
       .populate({
         path: 'category',
@@ -231,7 +222,7 @@ export const getAllRehabPlansHandler = async(req: Request, res: Response, next: 
       })
       .populate({
         path: 'schedule.sessions',
-        populate: { // Nested population for exercises
+        populate: { 
           path: 'exercises',
           model: 'Exercise'
 
@@ -243,18 +234,6 @@ export const getAllRehabPlansHandler = async(req: Request, res: Response, next: 
       throw new ErrorHandler(404, 'No rehab plans found');
     }
         
-    // const totalExercises = rehabPlans
-    // 2. Enhance each plan with stats (using your static values for now)
-    // const enhancedPlans = rehabPlans.map(plan => ({
-    //   ...plan,
-    //   stats: {
-    //     exerciseCount: 18,       // Static value for now
-    //     totalMinutes: 80,       // Static value for now
-    //     weekCount: plan.planDurationInWeeks  // Real value from DB
-    //   }
-    // }));
-
-    // 3. Send the enhanced data
     res.status(200).json({
       success: true,
       data: rehabPlans
@@ -269,7 +248,6 @@ export const getAllRehabPlansHandler = async(req: Request, res: Response, next: 
 
 export const createRehabPlanCategory = async(req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log('this is working',  req.body);
     
     const { title, description } = req.body;
 

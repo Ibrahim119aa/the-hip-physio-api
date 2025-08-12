@@ -6,7 +6,15 @@ const educationalVideoSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  description: {
+    type: String,
+    required: true
+  },
   videoUrl: {
+    type: String,
+    required: true
+  },
+  thumbnailUrl: {
     type: String,
     required: true
   },
@@ -14,15 +22,10 @@ const educationalVideoSchema = new mongoose.Schema({
     type: Number, // Duration in minutes
     required: true
   },
-  summary: {
-    type: String,
-    required: true
-  },
-  category: {
-    type: String, // e.g., "Recovery Tips", "Irritability Management"
-    required: true,
-    trim: true
-  }
+  categories: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'EducationalVideosCategory',
+  }]
 }, { timestamps: true } );
 
 const EducationalVideoModel = mongoose.models.EducationalVideo || mongoose.model('EducationalVideo', educationalVideoSchema);
