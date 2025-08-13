@@ -1,10 +1,11 @@
-import cloudinary from "../config/cloudinary";
+
 import type {
   UploadApiOptions,
   UploadApiResponse,
   UploadApiErrorResponse,
 } from "cloudinary";
 import streamifier from "streamifier";
+import cloudinary from "../../config/cloudinaryConfig";
 
 export type UploadVideoOptions = {
   folder?: string;                 // default: "hip-physio/educational/videos"

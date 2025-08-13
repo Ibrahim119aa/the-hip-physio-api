@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createRehabPlanCategory, createRehabPlanHandler, deleteRehabPlanHandler, getAllRehabPlanCategories, getAllRehabPlansHandler, getRehabPlanByIdHandler, updateRehabPlanHandler } from "../controllers/rehabPlan.controllers";
+import { createRehabPlanCategory, createRehabPlanHandler, deleteRehabPlanHandler, getAllRehabPlanCategories, getAllRehabPlansHandler, getAllRehabPlansHandler2, getRehabPlanByIdHandler, updateRehabPlanHandler } from "../controllers/rehabPlan.controllers";
 import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 

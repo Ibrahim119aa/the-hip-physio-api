@@ -3,6 +3,8 @@ import ErrorHandler from "../utils/errorHandlerClass";
 import RehabPlanModel from "../models/rehabPlan.model";
 import RehabPlanCategoryModel from "../models/rehabPlanCategory.model";
 import UserProgressModel from "../models/userProgress.model";
+import SessionModel from "../models/session.model";
+import ExerciseModel from "../models/exercise.model";
 
 export const createRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
@@ -123,7 +125,7 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
       })
       .populate({
         path: 'schedule.sessions',
-        populate: { // Nested population for exercises
+        populate: { 
           path: 'exercises',
           model: 'Exercise'
 
@@ -212,39 +214,171 @@ export const getRehabPlanByIdHandler2 = async (req: Request, res: Response, next
 };
 
 
-export const getAllRehabPlansHandler = async(req: Request, res: Response, next: NextFunction) => {
- try {
+// export const getAllRehabPlansHandler = async(req: Request, res: Response, next: NextFunction) => {
+//  try {
 
-    const rehabPlans = await RehabPlanModel.find()
-      .populate({
-        path: 'category',
-        select: 'title description'
-      })
-      .populate({
-        path: 'schedule.sessions',
-        populate: { 
-          path: 'exercises',
-          model: 'Exercise'
+//     const rehabPlans = await RehabPlanModel.find()
+//       .populate({
+//         path: 'category',
+//         select: 'title description'
+//       })
+//       .populate({
+//         path: 'schedule.sessions',
+//         populate: { 
+//           path: 'exercises',
+//           model: 'Exercise'
 
-        }
-      })
-      .lean();
+//         }
+//       })
+//       .lean();
 
-    if(!rehabPlans || rehabPlans.length === 0) {
-      throw new ErrorHandler(404, 'No rehab plans found');
-    }
+//     if(!rehabPlans || rehabPlans.length === 0) {
+//       throw new ErrorHandler(404, 'No rehab plans found');
+//     }
         
-    res.status(200).json({
+//     res.status(200).json({
+//       success: true,
+//       data: rehabPlans
+//     });
+
+//   } catch (error) {
+//     console.error('getRehabPlansHandler error:', error);
+//     next(error);
+//   }
+// }
+
+
+export const getAllRehabPlansHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const catColl = RehabPlanCategoryModel.collection.name; // safe actual names
+    const sessColl = SessionModel.collection.name;
+    const exColl   = ExerciseModel.collection.name;
+
+    const pipeline: any[] = [
+      {
+        $project: {
+          name: 1,
+          planDurationInWeeks: 1,
+          category: 1,
+          schedule: { $ifNull: ["$schedule", []] },
+        },
+      },
+      // Categories (array)
+      {
+        $lookup: {
+          from: catColl,
+          localField: "category",
+          foreignField: "_id",
+          as: "categories",
+          pipeline: [{ $project: { _id: 1, title: 1 } }],
+        },
+      },
+      // Expand schedule entries
+      { $unwind: { path: "$schedule", preserveNullAndEmptyArrays: true } },
+      // Track distinct weeks as we go
+      {
+        $addFields: {
+          _weekForSet: "$schedule.week"
+        }
+      },
+      // Expand session ids per schedule occurrence
+      { $unwind: { path: "$schedule.sessions", preserveNullAndEmptyArrays: true } }, // each is a Session _id
+      // Pull session -> exercises (array)
+      {
+        $lookup: {
+          from: sessColl,
+          localField: "schedule.sessions",
+          foreignField: "_id",
+          as: "sessionDoc",
+          pipeline: [{ $project: { exercises: 1 } }],
+        },
+      },
+      { $unwind: { path: "$sessionDoc", preserveNullAndEmptyArrays: true } },
+      // Expand exercise occurrences
+      { $unwind: { path: "$sessionDoc.exercises", preserveNullAndEmptyArrays: true } }, // each is an Exercise _id
+      // Pull exercise duration
+      {
+        $lookup: {
+          from: exColl,
+          localField: "sessionDoc.exercises",
+          foreignField: "_id",
+          as: "exerciseDoc",
+          pipeline: [{ $project: { estimatedDuration: 1 } }],
+        },
+      },
+      { $unwind: { path: "$exerciseDoc", preserveNullAndEmptyArrays: true } },
+
+      // Aggregate back per plan
+      {
+        $group: {
+          _id: "$_id",
+          name: { $first: "$name" },
+          planDurationInWeeks: { $first: "$planDurationInWeeks" },
+          categories: { $first: "$categories" },
+          weeksSet: { $addToSet: "$_weekForSet" },
+          // count each exercise occurrence (after unwind) only when it exists
+          totalExercises: {
+            $sum: {
+              $cond: [{ $ifNull: ["$exerciseDoc._id", false] }, 1, 0]
+            }
+          },
+          // sum durations safely; if your estimatedDuration is already MINUTES, remove the /60 later
+          totalSeconds: {
+            $sum: {
+              $convert: {
+                input: "$exerciseDoc.estimatedDuration",
+                to: "double",
+                onError: 0,
+                onNull: 0
+              }
+            }
+          }
+        }
+      },
+
+      // Final computed fields
+      {
+        $addFields: {
+          totalWeeks: {
+            $cond: [
+              { $gt: [{ $size: "$weeksSet" }, 0] },
+              { $size: "$weeksSet" },
+              "$planDurationInWeeks"
+            ]
+          },
+          // If estimatedDuration is already in MINUTES, just use { $ceil: "$totalSeconds" } instead.
+          totalMinutes: { $ceil: { $divide: ["$totalSeconds", 60] } }
+        }
+      },
+
+      // Output shape
+      {
+        $project: {
+          _id: 1,
+          title: "$name",
+          totalWeeks: 1,
+          totalMinutes: 1,
+          categories: 1,
+          totalExercises: 1 // remove this line if you don't want it in the response
+        }
+      }
+    ];
+
+    const data = await RehabPlanModel.aggregate(pipeline).allowDiskUse(true);
+
+    if (!data.length) throw new ErrorHandler(404, "No rehab plans found");
+    
+    res.status(200).json({ 
       success: true,
-      data: rehabPlans
+      message: "Rehab plans fetched successfully", 
+      data 
     });
-
-  } catch (error) {
-    console.error('getRehabPlansHandler error:', error);
-    next(error);
+    
+  } catch (err) {
+    console.error("getAllRehabPlansHandler error:", err);
+    next(err);
   }
-}
-
+};
 
 export const createRehabPlanCategory = async(req: Request, res: Response, next: NextFunction) => {
   try {
