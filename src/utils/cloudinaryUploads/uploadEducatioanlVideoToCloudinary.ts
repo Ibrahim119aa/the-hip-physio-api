@@ -3,7 +3,7 @@ import config from "../../config/config";
 import ErrorHandler from "../errorHandlerClass";
 
 // Upload video to Cloudinary
-export const uploadVideoToCloudinary = async (file: Express.Multer.File): Promise<{ url: string; duration: number }> => {
+export const uploadEducatioanlVideoToCloudinary = async (file: Express.Multer.File): Promise<{ url: string; duration: number }> => {
   try {
     if (!file) {
       throw new ErrorHandler(400, 'No video file provided');
@@ -26,7 +26,7 @@ export const uploadVideoToCloudinary = async (file: Express.Multer.File): Promis
     // Upload to Cloudinary
     const result = await cloudinary.uploader.upload(base64File, {
       resource_type: 'video',
-      folder: 'hip-physio/exercises/videos',
+      folder: 'hip-physio/educational/videos',
       format: 'mp4',
       quality: 'auto',
       eager: [

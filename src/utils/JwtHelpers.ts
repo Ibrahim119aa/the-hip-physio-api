@@ -29,7 +29,7 @@ export const generateTokenAndSaveCookies = (
   });
 
   // Set HTTP-only cookie (secure, SameSite)
-  res.cookie('token', token, {
+  res.cookie('aToken', token, {
     httpOnly: true,
     secure: config.environment === 'production', // HTTPS only in production
     sameSite: 'lax', // or 'lax' for cross-site compatibility

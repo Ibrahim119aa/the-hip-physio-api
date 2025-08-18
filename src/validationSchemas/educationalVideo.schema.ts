@@ -1,23 +1,26 @@
 import { z } from "zod";
+import domPurify from "../config/domPurifyInstance";
 
 export const educationVideoSchema = z.object({
   title: z.string()
     .min(1, "Title is required")
     .max(100, "Title cannot exceed 100 characters")
-    .trim(),
+    .transform(value => domPurify.sanitize(value.trim())),
 
   description: z.string()
     .min(1, "Description is required")
-    .max(500, "Description cannot exceed 500 characters"),
+    .max(500, "Description cannot exceed 500 characters")
+    .transform(value => domPurify.sanitize(value.trim())),
 
-  category: z.array(
-    z.string().min(1, "Category cannot be empty")
-  ).nonempty("At least one category is required"),
+  category: z.string()
+    .min(1, "Category is required")
+    .transform(value => domPurify.sanitize(value.trim())),
 
   tags: z.array(
-    z.string().min(1, "Tag cannot be empty")
-  ).nonempty("At least one tag is required"),
+    z.string()
+      .min(1, "Tag cannot be empty")
+      .transform(value => domPurify.sanitize(value.trim()))
+  ).optional(),
 });
 
-// Type for TypeScript usage
 export type TEducationVideoRequest = z.infer<typeof educationVideoSchema>;

@@ -6,7 +6,7 @@ import { hasRole } from "../middlewares/hasRole.middleware";
 const router = Router();
 
 router.route("/")
-  .post( createRehabPlanHandler)
+  .post(createRehabPlanHandler)
   .get(getAllRehabPlansHandler)
   
   // router.route("/:planId")
@@ -18,7 +18,7 @@ router.route("/category")
   .get(getAllRehabPlanCategories)
 
 router.route("/:planId")
-  .get(getRehabPlanByIdHandler)
+  .get(isAuthenticated, getRehabPlanByIdHandler)
   .put(updateRehabPlanHandler)
   .delete( deleteRehabPlanHandler);
 
