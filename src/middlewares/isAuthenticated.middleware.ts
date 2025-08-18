@@ -13,40 +13,50 @@
     }
   }
 
-  export const isAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
+  const isUserAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const adminToken = req.cookies.aToken;
     const userToken = req.headers.authorization?.startsWith('Bearer ') 
       ? req.headers.authorization.split(' ')[1] 
       : undefined;
 
-    if (!adminToken && !userToken) {
+    if (!userToken) {
       throw new ErrorHandler(401, 'Please login.');
     }
 
-    if (adminToken) {
-      const decoded = verifyToken(adminToken) as jwt.JwtPayload;
-      
-      if (!decoded?.adminId) {
-        throw new ErrorHandler(401, 'Invalid admin token.');
-      }
+    const decoded = verifyToken(userToken) as jwt.JwtPayload;
 
-      req.adminId = decoded.adminId;
+    if (!decoded?.userId) {
+      throw new ErrorHandler(401, 'Invalid user token.');
     }
 
-    if (userToken) {
-      const decoded = verifyToken(userToken) as jwt.JwtPayload;
-      
-      if (!decoded?.userId) {
-        throw new ErrorHandler(401, 'Invalid user token.');
-      }
-
-      req.userId = decoded.userId;
-    }
-
+    req.userId = decoded.userId;
     next();
 
   } catch (error) {
     next(error);
   }
-};
+}
+
+const isAdminAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const adminToken = req.cookies.aToken;
+
+    if (!adminToken) {
+      throw new ErrorHandler(401, 'Please login as an admin.');
+    }
+
+    const decoded = verifyToken(adminToken) as jwt.JwtPayload;
+
+    if (!decoded?.adminId) {
+      throw new ErrorHandler(401, 'Invalid admin token.');
+    }
+
+    req.adminId = decoded.adminId;
+    next();
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+export { isUserAuthenticated, isAdminAuthenticated };
