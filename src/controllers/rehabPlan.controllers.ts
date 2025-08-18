@@ -6,8 +6,6 @@ import UserProgressModel from "../models/userProgress.model";
 import SessionModel from "../models/session.model";
 import ExerciseModel from "../models/exercise.model";
 import mongoose from "mongoose";
-import { UserProgressLean } from "../types/leantyps.types";
-import { RehabPlanLean } from "../types/rehabPlanLean.types";
 
 export const createRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
