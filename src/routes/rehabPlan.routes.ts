@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { createRehabPlanCategory, createRehabPlanHandler, deleteRehabPlanHandler, getAllRehabPlanCategories, getAllRehabPlansHandler, getAllRehabPlansHandler2, getRehabPlanByIdHandler, updateRehabPlanHandler } from "../controllers/rehabPlan.controllers";
+import { createRehabPlanCategory, createRehabPlanHandler, deleteRehabPlanHandler, getAllRehabPlanCategories, getAllRehabPlansHandler, getRehabPlanByIdHandler, updateRehabPlanHandler } from "../controllers/rehabPlan.controllers";
 import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 
 const router = Router();
 
 router.route("/")
-  .post( createRehabPlanHandler)
+  .post(createRehabPlanHandler)
   .get(getAllRehabPlansHandler)
   
   // router.route("/:planId")
@@ -18,7 +18,7 @@ router.route("/category")
   .get(getAllRehabPlanCategories)
 
 router.route("/:planId")
-  .get(getRehabPlanByIdHandler)
+  .get(isAuthenticated, getRehabPlanByIdHandler)
   .put(updateRehabPlanHandler)
   .delete( deleteRehabPlanHandler);
 

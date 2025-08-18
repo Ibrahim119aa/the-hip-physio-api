@@ -8,35 +8,45 @@
     namespace Express {
       interface Request {
         userId?: any;
+        adminId?: any;
       }
     }
   }
 
   export const isAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      let token;
+  try {
+    const adminToken = req.cookies.aToken;
+    const userToken = req.headers.authorization?.startsWith('Bearer ') 
+      ? req.headers.authorization.split(' ')[1] 
+      : undefined;
 
-      if(req.cookies.token) {
-        token = req.cookies.token;
-      } else if (req.headers.authorization?.startsWith('Bearer ')) { 
-        token = req.headers.authorization.split(' ')[1];
-      }
+    if (!adminToken && !userToken) {
+      throw new ErrorHandler(401, 'Please login.');
+    }
 
-      if (!token) {
-        throw new ErrorHandler(401, 'please login.');
-      }
-
-      const decoded = verifyToken(token) as jwt.JwtPayload;
+    if (adminToken) {
+      const decoded = verifyToken(adminToken) as jwt.JwtPayload;
       
-      if (!decoded) {
-        throw new ErrorHandler(401, 'Invalid token.');
+      if (!decoded?.adminId) {
+        throw new ErrorHandler(401, 'Invalid admin token.');
+      }
+
+      req.adminId = decoded.adminId;
+    }
+
+    if (userToken) {
+      const decoded = verifyToken(userToken) as jwt.JwtPayload;
+      
+      if (!decoded?.userId) {
+        throw new ErrorHandler(401, 'Invalid user token.');
       }
 
       req.userId = decoded.userId;
-
-      next();
-
-    } catch (error) {
-      next(error)
     }
+
+    next();
+
+  } catch (error) {
+    next(error);
   }
+};

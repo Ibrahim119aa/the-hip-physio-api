@@ -5,6 +5,9 @@ import RehabPlanCategoryModel from "../models/rehabPlanCategory.model";
 import UserProgressModel from "../models/userProgress.model";
 import SessionModel from "../models/session.model";
 import ExerciseModel from "../models/exercise.model";
+import mongoose from "mongoose";
+import { UserProgressLean } from "../types/leantyps.types";
+import { RehabPlanLean } from "../types/rehabPlanLean.types";
 
 export const createRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
@@ -110,7 +113,7 @@ export const getRehabPlanHandler = async(req: Request, res: Response, next: Next
   }
 }
 
-export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const getRehabPlanByIdHandler01 = async(req: Request, res: Response, next: NextFunction) => {
   try {
     const { planId } = req.params;
 
@@ -163,7 +166,7 @@ export const getRehabPlanByIdHandler = async(req: Request, res: Response, next: 
   }
 }
 
-export const getRehabPlanByIdHandler2 = async (req: Request, res: Response, next: NextFunction) => {
+export const getRehabPlanByIdHandler02 = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { planId } = req.params;
     const userId = req.user?._id; // assuming auth middleware
@@ -213,6 +216,237 @@ export const getRehabPlanByIdHandler2 = async (req: Request, res: Response, next
   }
 };
 
+// Small helper to normalize ObjectId -> string
+const oid = (v: any) => String((v as mongoose.Types.ObjectId) ?? v);
+
+export const getRehabPlanByIdHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { planId } = req.params;
+    const userId = req.userId;
+
+    if (!planId) throw new ErrorHandler(400, "Plan ID is required");
+    if (!userId) throw new ErrorHandler(400, "User ID is required");
+
+    // 1) Pull plan with schedule -> sessions -> exercises (and exercise.category) populated
+    const plan = await RehabPlanModel.findById(planId)
+      .populate({
+        path: "category",
+        select: "title description",
+      })
+      .populate({
+        path: "schedule.sessions",
+        model: "Session",
+        populate: {
+          path: "exercises",
+          model: "Exercise",
+          select:
+            "_id name description videoUrl thumbnailUrl reps sets category tags bodyPart difficulty estimatedDuration createdBy createdAt updatedAt",
+          populate: {
+            path: "category",              // exercise.category reference
+            model: "ExerciseCategory",     // <- change if your model name differs
+            select: "_id title slug",
+          },
+        },
+      })
+      .lean<any>();
+
+    if (!plan) throw new ErrorHandler(404, "Rehab plan not found");
+
+    // 2) Get user progress for this plan
+    const progress = await UserProgressModel.findOne({
+      userId: userId,
+      rehabPlanId: planId,
+    }).lean<any>();
+
+    const completedExerciseIds = new Set<string>(
+      (progress?.completedExercises || []).map((e: any) => oid(e.exerciseId))
+    );
+    const completedSessionIds = new Set<string>(
+      (progress?.completedSessions || []).map((s: any) => oid(s.sessionId))
+    );
+
+    // 3) Sort schedule by week/day and group days per week
+    const schedule = (plan.schedule || []).slice().sort((a: any, b: any) => {
+      if (a.week !== b.week) return a.week - b.week;
+      return a.day - b.day;
+    });
+
+    const weekMap = new Map<number, any[]>();
+    for (const item of schedule) {
+      const arr = weekMap.get(item.week) || [];
+      arr.push(item);
+      weekMap.set(item.week, arr);
+    }
+
+    // 4) Build organized structure (weeks -> days -> sessions) with strict unlocking rules
+    const weeksOut: any[] = [];
+    const totals = {
+      totalExercises: 0,
+      completedExercises: 0,
+      totalSessions: 0,
+      completedSessions: 0,
+    };
+
+    const allWeeks = [...weekMap.keys()].sort((a, b) => a - b);
+
+    // Week unlocking gate: Week 1 handled specially; other weeks depend on previous week completion
+    let prevWeekCompleted = false;
+
+    for (const w of allWeeks) {
+      const daysForWeek = weekMap.get(w)!;
+
+      // Week unlocked: W1 always unlocked; others only if previous week completed
+      const weekUnlocked = w === 1 ? true : prevWeekCompleted;
+
+      let weekCompleted = true;
+      const daysOut: any[] = [];
+
+      // Day unlocking gate: Day 1 always unlocked (when week is unlocked), others depend on previous day completion
+      let prevDayCompleted = false;
+
+      for (const dayItem of daysForWeek) {
+        const sessions = dayItem.sessions || [];
+        const sessionsOut: any[] = [];
+
+        let dayTotalExercises = 0;
+        let dayCompletedExercises = 0;
+
+        for (const s of sessions) {
+          const sessionId = oid(s._id);
+          const exercises = (s.exercises || []) as any[];
+
+          const sTotal = exercises.length;
+          const sDoneCount = exercises.reduce(
+            (acc, ex) => acc + (completedExerciseIds.has(oid(ex._id)) ? 1 : 0),
+            0
+          );
+
+          const sCompleted =
+            (sTotal > 0 && sDoneCount === sTotal) ||
+            completedSessionIds.has(sessionId);
+
+          dayTotalExercises += sTotal;
+          dayCompletedExercises += sDoneCount;
+
+          totals.totalSessions += 1;
+          if (sCompleted) totals.completedSessions += 1;
+
+          sessionsOut.push({
+            sessionId,
+            title: s.title,
+            completed: sCompleted,
+            totalExercises: sTotal,
+            completedExercises: sDoneCount,
+            exercises: exercises.map((ex) => ({
+              _id: ex._id,
+              name: ex.name,
+              thumbnailUrl: ex.thumbnailUrl,
+              sets: ex.sets,
+              reps: ex.reps,
+              estimatedDuration: ex.estimatedDuration,
+              videoUrl: ex.videoUrl,
+              completed: completedExerciseIds.has(oid(ex._id)),
+              // populated category object if available
+              category: ex.category ?? null,
+              // keep any other fields you want to expose (difficulty, tags, etc.)
+              difficulty: ex.difficulty,
+              tags: ex.tags,
+              bodyPart: ex.bodyPart,
+            })),
+          });
+        }
+
+        totals.totalExercises += dayTotalExercises;
+        totals.completedExercises += dayCompletedExercises;
+
+        const dayCompleted =
+          dayTotalExercises > 0 && dayCompletedExercises === dayTotalExercises;
+
+        // Day unlocked: week must be unlocked; Day 1 always unlocked; Day N>1 only if previous day completed
+        const dayUnlocked =
+          weekUnlocked && (dayItem.day === 1 ? true : prevDayCompleted);
+
+        daysOut.push({
+          day: dayItem.day,
+          unlocked: dayUnlocked,
+          completed: dayCompleted,
+          totalExercises: dayTotalExercises,
+          completedExercises: dayCompletedExercises,
+          sessions: sessionsOut,
+        });
+
+        // Gate next day
+        prevDayCompleted = dayCompleted;
+
+        // Track week completion
+        if (!dayCompleted) weekCompleted = false;
+      }
+
+      weeksOut.push({
+        week: w,
+        unlocked: weekUnlocked,
+        completed: weekCompleted,
+        days: daysOut,
+      });
+
+      // Gate next week
+      prevWeekCompleted = weekCompleted;
+    }
+
+    // 5) Determine current position (first unlocked & not completed day)
+    let currentWeek = allWeeks[0] ?? 1;
+    let currentDay = 1;
+    let found = false;
+
+    for (const wk of weeksOut) {
+      if (!wk.unlocked) break;
+      for (const d of wk.days) {
+        if (d.unlocked && !d.completed) {
+          currentWeek = wk.week;
+          currentDay = d.day;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+      if (wk.unlocked && wk.days.length) {
+        currentWeek = wk.week;
+        currentDay = wk.days[wk.days.length - 1].day;
+      }
+    }
+
+    // 6) Response
+    return res.status(200).json({
+      success: true,
+      data: {
+        planInfo: {
+          _id: plan._id,
+          name: plan.name,
+          description: plan.description,
+          price: plan.price,
+          planType: plan.planType,
+          planDurationInWeeks: plan.planDurationInWeeks,
+          phase: plan.phase,
+          category: plan.category, // already populated (title, description)
+        },
+        schedule: {
+          weeks: weeksOut,
+          currentWeek,
+          currentDay,
+          totals,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("getRehabPlanByIdHandler error:", error);
+    next(error);
+  }
+};
+
 
 // export const getAllRehabPlansHandler = async(req: Request, res: Response, next: NextFunction) => {
 //  try {
@@ -254,89 +488,56 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
     const sessColl = SessionModel.collection.name;
     const exColl   = ExerciseModel.collection.name;
 
-    const pipeline: any[] = [
+    const pipeline = [
       {
-        $project: {
-          name: 1,
-          planDurationInWeeks: 1,
-          category: 1,
-          schedule: { $ifNull: ["$schedule", []] },
-        },
+        $project: { 
+          name: 1, 
+          description: 1,
+          price: 1,
+          planType: 1,
+          phase: 1,
+          planDurationInWeeks: 1, 
+          category: 1, 
+          schedule: { $ifNull: ["$schedule", []] } 
+        } 
       },
-      // Categories (array)
-      {
-        $lookup: {
-          from: catColl,
-          localField: "category",
-          foreignField: "_id",
-          as: "categories",
-          pipeline: [{ $project: { _id: 1, title: 1 } }],
-        },
-      },
-      // Expand schedule entries
-      { $unwind: { path: "$schedule", preserveNullAndEmptyArrays: true } },
-      // Track distinct weeks as we go
-      {
-        $addFields: {
-          _weekForSet: "$schedule.week"
-        }
-      },
-      // Expand session ids per schedule occurrence
-      { $unwind: { path: "$schedule.sessions", preserveNullAndEmptyArrays: true } }, // each is a Session _id
-      // Pull session -> exercises (array)
+
+      // Track distinct weeks without expanding everything
+      { $addFields: { weeksSet: { $setUnion: [[] , "$schedule.week"] } } },
+
+      // Aggregate sessions + exercises INSIDE subpipeline
       {
         $lookup: {
           from: sessColl,
-          localField: "schedule.sessions",
-          foreignField: "_id",
-          as: "sessionDoc",
-          pipeline: [{ $project: { exercises: 1 } }],
-        },
-      },
-      { $unwind: { path: "$sessionDoc", preserveNullAndEmptyArrays: true } },
-      // Expand exercise occurrences
-      { $unwind: { path: "$sessionDoc.exercises", preserveNullAndEmptyArrays: true } }, // each is an Exercise _id
-      // Pull exercise duration
-      {
-        $lookup: {
-          from: exColl,
-          localField: "sessionDoc.exercises",
-          foreignField: "_id",
-          as: "exerciseDoc",
-          pipeline: [{ $project: { estimatedDuration: 1 } }],
-        },
-      },
-      { $unwind: { path: "$exerciseDoc", preserveNullAndEmptyArrays: true } },
-
-      // Aggregate back per plan
-      {
-        $group: {
-          _id: "$_id",
-          name: { $first: "$name" },
-          planDurationInWeeks: { $first: "$planDurationInWeeks" },
-          categories: { $first: "$categories" },
-          weeksSet: { $addToSet: "$_weekForSet" },
-          // count each exercise occurrence (after unwind) only when it exists
-          totalExercises: {
-            $sum: {
-              $cond: [{ $ifNull: ["$exerciseDoc._id", false] }, 1, 0]
-            }
-          },
-          // sum durations safely; if your estimatedDuration is already MINUTES, remove the /60 later
-          totalSeconds: {
-            $sum: {
-              $convert: {
-                input: "$exerciseDoc.estimatedDuration",
-                to: "double",
-                onError: 0,
-                onNull: 0
+          let: { sIds: { $reduce: {
+            input: "$schedule.sessions",
+            initialValue: [],
+            in: { $setUnion: ["$$value", "$$this"] } // dedupe session IDs across days
+          }}},
+          pipeline: [
+            { $match: { $expr: { $in: ["$_id", "$$sIds"] } } },
+            { $unwind: { path: "$exercises", preserveNullAndEmptyArrays: true } },
+            {
+              $lookup: {
+                from: exColl,
+                localField: "exercises",
+                foreignField: "_id",
+                as: "ex",
+                pipeline: [{ $project: { estimatedDuration: 1 } }]
+              }
+            },
+            { $unwind: { path: "$ex", preserveNullAndEmptyArrays: true } },
+            {
+              $group: {
+                _id: null,
+                totalExercises: { $sum: { $cond: [{ $ifNull: ["$ex._id", false] }, 1, 0] } },
+                totalSeconds: { $sum: { $convert: { input: "$ex.estimatedDuration", to: "double", onNull: 0, onError: 0 } } }
               }
             }
-          }
+          ],
+          as: "sessAgg"
         }
       },
-
-      // Final computed fields
       {
         $addFields: {
           totalWeeks: {
@@ -346,26 +547,38 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
               "$planDurationInWeeks"
             ]
           },
-          // If estimatedDuration is already in MINUTES, just use { $ceil: "$totalSeconds" } instead.
-          totalMinutes: { $ceil: { $divide: ["$totalSeconds", 60] } }
+          totalExercises: { $ifNull: [{ $first: "$sessAgg.totalExercises" }, 0] },
+          totalMinutes:   { $ceil: { $divide: [{ $ifNull: [{ $first: "$sessAgg.totalSeconds" }, 0] }, 60] } }
         }
       },
-
-      // Output shape
+      // Now get categories once per plan
+      {
+        $lookup: {
+          from: catColl,
+          localField: "category",
+          foreignField: "_id",
+          as: "categories",
+          pipeline: [{ $project: { _id: 1, title: 1 } }]
+        }
+      },
       {
         $project: {
           _id: 1,
           title: "$name",
+          description: 1,
+          price: 1,
+          planType: 1,
+          phase: 1,
           totalWeeks: 1,
           totalMinutes: 1,
+          totalExercises: 1,
           categories: 1,
-          totalExercises: 1 // remove this line if you don't want it in the response
         }
       }
     ];
 
     const data = await RehabPlanModel.aggregate(pipeline).allowDiskUse(true);
-
+    
     if (!data.length) throw new ErrorHandler(404, "No rehab plans found");
     
     res.status(200).json({ 

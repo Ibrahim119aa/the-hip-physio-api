@@ -6,10 +6,11 @@ export const hasRole = (role: string) => {
   return async (req: Request, res: Response, next:NextFunction) => {
     try {
       
-      if(!req.userId) throw new ErrorHandler(401, 'Authentication required');
+      if(!req.adminId) throw new ErrorHandler(401, 'Authentication required');
 
-      const user = await UserModel.findById(req.userId)
-      if(!user) throw new ErrorHandler(401, 'please login.');
+      const user = await UserModel.findById(req.adminId)
+      
+      if(!user) throw new ErrorHandler(404, 'User not found.');
 
       if(user.role !== role) throw new ErrorHandler(403, 'Unauthorized - access required.');
 
