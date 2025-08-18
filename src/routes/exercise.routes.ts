@@ -13,7 +13,7 @@ import {
   getExercisesByBodyPartHandler
 } from "../controllers/exercise.controllers";
 import { uploadVideoAndThumbnail, validateExerciseVideoUpload, handleUploadError, validateExerciseUpdate } from "../middlewares/upload.middleware";
-import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
+import { isAdminAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 
 const router = Router();
@@ -31,12 +31,12 @@ router.route("/category/:category").get(getExercisesByCategoryHandler);
 router.route("/body-part/:bodyPart").get(getExercisesByBodyPartHandler);
 router.route("/:id")
   .get(getExerciseByIdHandler)
-  .put(isAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseUpdate, updateExerciseHandler)
-  .delete(isAuthenticated, hasRole('admin'), deleteExerciseHandler);
+  .put(isAdminAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseUpdate, updateExerciseHandler)
+  .delete(isAdminAuthenticated, hasRole('admin'), deleteExerciseHandler);
 
 // CRUD operations (root path)
 router.route("/")
-  .post(isAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseVideoUpload, addExerciseHandler)
+  .post(isAdminAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateExerciseVideoUpload, addExerciseHandler)
   .get(getAllExercisesHandler);
 
 export default router;

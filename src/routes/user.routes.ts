@@ -9,7 +9,7 @@ import {
   adminLoginHandler
 } from "../controllers/user.controllers";
 import {  } from "../middlewares/isAdmin.middleware";
-import { isAuthenticated } from "../middlewares/isAuthenticated.middleware";
+import { isAdminAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 
 const router = Router();
@@ -22,6 +22,6 @@ router.route("/login").post(userLoginHandler)
 router.route("/admin/login").post(adminLoginHandler)
 router.route("/admin/first-admin").post(createFirstAdminHandler)
 router.route("/admin/users").get(getUsersHandler)
-router.route("/admin/users/:userId/role").put(isAuthenticated, hasRole('admin'), assignAdminRoleHandler)
+router.route("/admin/users/:userId/role").put(isAdminAuthenticated, hasRole('admin'), assignAdminRoleHandler)
 
 export default router;
