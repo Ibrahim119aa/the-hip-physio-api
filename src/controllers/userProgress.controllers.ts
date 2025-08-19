@@ -86,7 +86,11 @@ export const getUserProgressHandler = async(req: Request, res: Response, next: N
       throw new ErrorHandler(400, 'required data is missing.');
     }
     
-    const progress = await UserProgressModel.findOne({ userId, rehabPlanId });
+    const progress = await UserProgressModel.findOne({ userId, rehabPlanId }).populate({
+      path: "rehabPlanId",
+      model: "RehabPlan",
+      select: "name"
+    });
       
     if(!progress) {
       throw new ErrorHandler(404, 'User progress not found.');
@@ -273,6 +277,8 @@ type ProgressWeek = {
 };
 
 type ProgressStatus = {
+  planId: string,
+  planName: string
   weeks: ProgressWeek[];
   currentWeek: number;
   currentDay: number;
@@ -453,6 +459,8 @@ export const getPlanProgressStatus = async (req: Request, res: Response) => {
     }
 
     const payload: ProgressStatus = {
+      planId: plan._id,
+      planName: plan.name,
       weeks: weeksOut,
       currentWeek,
       currentDay,
@@ -531,5 +539,243 @@ export const getUserLogbookHandler = async (req: Request, res: Response, next: N
   } catch (error) {
     console.error("getUserLogbookHandler error", error);
     next(error);
+  }
+};
+
+
+// @route GET /api/user-progress/completed/:planId/:userId
+
+export const getCompletedWithResilience = async (req: Request, res: Response) => {
+  try {
+    const { planId, userId } = req.params;
+    console.log('planId', planId);
+    console.log('userId', userId);
+    
+
+    // 1) Pull the plan with sessions/exercises (for names & mapping week/day)
+    const plan = await RehabPlanModel.findById(planId)
+      .populate({
+        path: "schedule.sessions",
+        model: "Session",
+        populate: {
+          path: "exercises",
+          model: "Exercise",
+          select: "_id name thumbnailUrl sets reps estimatedDuration",
+        },
+      })
+      .lean<any>();
+
+    if (!plan) {
+      return res.status(404).json({ success: false, message: "Plan not found" });
+    }
+
+    // Build maps: sessionId -> {week, day, title, exercises[]}; exerciseId -> {week, day, sessionId, name}
+    const sessionMeta = new Map<string, { week: number; day: number; title?: string; exerciseIds: string[] }>();
+    const exerciseMeta = new Map<string, { week: number; day: number; sessionId: string; name?: string }>();
+    // also collect per (week, day) -> sessionIds/exerciseIds to compute completed days/weeks
+    const dayKey = (w: number, d: number) => `${w}#${d}`;
+    const dayToSessions = new Map<string, Set<string>>();
+    const dayToExercises = new Map<string, Set<string>>();
+    const weeksSet = new Set<number>();
+
+    const schedule = (plan.schedule || []).slice().sort((a: any, b: any) =>
+      a.week === b.week ? a.day - b.day : a.week - b.week
+    );
+
+    for (const item of schedule) {
+      const w = item.week;
+      const d = item.day;
+      weeksSet.add(w);
+      const dKey = dayKey(w, d);
+
+      const sSet = dayToSessions.get(dKey) ?? new Set<string>();
+      const eSet = dayToExercises.get(dKey) ?? new Set<string>();
+
+      for (const s of item.sessions || []) {
+        const sId = oid(s._id);
+        const exs = (s.exercises || []) as any[];
+        const exIds = exs.map((ex) => oid(ex._id));
+        sessionMeta.set(sId, { week: w, day: d, title: s.title, exerciseIds: exIds });
+        sSet.add(sId);
+
+        for (const ex of exs) {
+          const exId = oid(ex._id);
+          exerciseMeta.set(exId, { week: w, day: d, sessionId: sId, name: ex.name });
+          eSet.add(exId);
+        }
+      }
+
+      dayToSessions.set(dKey, sSet);
+      dayToExercises.set(dKey, eSet);
+    }
+
+    // 2) Get user progress (completed session + exercise signals)
+    const progress = await UserProgressModel.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      rehabPlanId: new mongoose.Types.ObjectId(planId),
+    }).lean<any>();
+
+    const completedExerciseArr = progress?.completedExercises || [];
+    const completedSessionArr = progress?.completedSessions || [];
+
+    const completedExerciseIds = new Set<string>(completedExerciseArr.map((e: any) => oid(e.exerciseId)));
+    const completedSessionIds = new Set<string>(completedSessionArr.map((s: any) => oid(s.sessionId)));
+
+    // 3) Completed sessions list (+ difficulty)
+    const completedSessions = completedSessionArr
+      .filter((s: any) => sessionMeta.has(oid(s.sessionId)))
+      .map((s: any) => {
+        const sId = oid(s.sessionId);
+        const meta = sessionMeta.get(sId)!;
+        return {
+          sessionId: sId,
+          title: meta.title,
+          week: meta.week,
+          day: meta.day,
+          difficultyRating: s.difficultyRating ?? null,
+          completedAt: s.completedAt ?? null,
+          totalExercises: meta.exerciseIds.length,
+          // compute completedExercises for the session from exercise completions
+          completedExercises: meta.exerciseIds.filter((id) => completedExerciseIds.has(id)).length,
+        };
+      });
+
+    // 4) Completed exercises list (+ irritability)
+    const completedExercises = completedExerciseArr
+      .filter((e: any) => exerciseMeta.has(oid(e.exerciseId)))
+      .map((e: any) => {
+        const exId = oid(e.exerciseId);
+        const meta = exerciseMeta.get(exId)!;
+        return {
+          exerciseId: exId,
+          name: meta.name,
+          week: meta.week,
+          day: meta.day,
+          sessionId: meta.sessionId,
+          irritabilityScore: e.irritabilityScore ?? null,
+          completedAt: e.completedAt ?? null,
+        };
+      });
+
+    // 5) Determine completed days: a day is completed if all exercises in that day are completed
+    const completedDays: { week: number; day: number }[] = [];
+    for (const [k, exSet] of dayToExercises.entries()) {
+      if (exSet.size === 0) continue; // no exercises -> ignore
+      const allDone = [...exSet].every((id) => completedExerciseIds.has(id));
+      if (allDone) {
+        const [wStr, dStr] = k.split("#");
+        completedDays.push({ week: Number(wStr), day: Number(dStr) });
+      }
+    }
+    completedDays.sort((a, b) => (a.week === b.week ? a.day - b.day : a.week - b.week));
+
+    // 6) Completed weeks: a week is completed if *all days with exercises* in that week are completed
+    const daysByWeek = new Map<number, { totalDaysWithExercises: number; completedDays: number }>();
+    for (const w of weeksSet) daysByWeek.set(w, { totalDaysWithExercises: 0, completedDays: 0 });
+
+    for (const [k, exSet] of dayToExercises.entries()) {
+      const [wStr, dStr] = k.split("#");
+      const w = Number(wStr);
+      if (!daysByWeek.has(w)) daysByWeek.set(w, { totalDaysWithExercises: 0, completedDays: 0 });
+      if (exSet.size > 0) {
+        const agg = daysByWeek.get(w)!;
+        agg.totalDaysWithExercises += 1;
+        // completed?
+        const isCompleted = [...exSet].every((id) => completedExerciseIds.has(id));
+        if (isCompleted) agg.completedDays += 1;
+      }
+    }
+
+    const completedWeeks = [...daysByWeek.entries()]
+      .filter(([, v]) => v.totalDaysWithExercises > 0 && v.completedDays === v.totalDaysWithExercises)
+      .map(([w]) => w)
+      .sort((a, b) => a - b);
+
+    // 7) Weekly resilience (completed check-ins)
+    // const weeklyResilience = await PsychologicalCheckInModel.find({
+    //   userId: new mongoose.Types.ObjectId(userId),
+    //   rehabPlanId: new mongoose.Types.ObjectId(planId),
+    //   status: "completed", // if you kept status; else remove this line
+    // })
+    //   .select("weekNumber resilienceScore comments submittedAt")
+    //   .sort({ weekNumber: 1 })
+    //   .lean<any>();
+
+    // 8) Shape the payload
+    return res.json({
+      success: true,
+      message: "Completed items with resilience scores.",
+      data: {
+        planId: plan._id,
+        planName: plan.name,
+        completedWeeks,                         // number[]
+        completedDays,                          // [{week, day}]
+        completedSessions,                      // [{sessionId, title, week, day, difficultyRating, completedAt, totalExercises, completedExercises}]
+        completedExercises,                     // [{exerciseId, name, week, day, sessionId, irritabilityScore, completedAt}]
+        // weeklyResilience,                       // [{weekNumber, resilienceScore, comments, submittedAt}]
+      },
+    });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: err.message || "Server error" });
+  }
+};
+
+
+// progress percentage 
+// @route GET /api/user-progress/progress-percent/:planId
+export const getProgressPercent = async (req: Request, res: Response) => {
+  try {
+    const { planId } = req.params;
+    const userId = req.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(planId) || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid planId or userId" });
+    }
+
+    // 1) Load plan with sessions -> exercises
+    const plan = await RehabPlanModel.findById(planId)
+      .populate({
+        path: "schedule.sessions",
+        model: "Session",
+        populate: { path: "exercises", model: "Exercise", select: "_id" },
+      })
+      .lean<any>();
+
+    if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
+
+    // total exercises in plan
+    const totalExercises = (plan.schedule || []).reduce((acc: number, item: any) => {
+      const sessions = item.sessions || [];
+      const exCount = sessions.reduce((sAcc: number, s: any) => sAcc + (s.exercises?.length || 0), 0);
+      return acc + exCount;
+    }, 0);
+
+    // 2) Load progress
+    const progress = await UserProgressModel.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      rehabPlanId: new mongoose.Types.ObjectId(planId),
+    }).lean<any>();
+
+    const completedExercises = (progress?.completedExercises || []).length;
+
+    const percent = totalExercises > 0
+      ? Math.min(100, Math.round((completedExercises / totalExercises) * 100))
+      : 0;
+
+    return res.json({
+      success: true,
+      message: "Progress percentage",
+      data: {
+        planId: plan._id,
+        planName: plan.name,
+        totalExercises,
+        completedExercises,
+        progressPercent: percent,
+      },
+    });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 };

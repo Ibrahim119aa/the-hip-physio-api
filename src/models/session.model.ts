@@ -50,29 +50,3 @@ const sessionSchema = new mongoose.Schema({
 const SessionModel = mongoose.models.Session || mongoose.model('Session', sessionSchema);
 
 export default SessionModel;
-
-
-  // irritability_rating: Number, // Assuming range 0-10 is validated elsewhere
-
- 
-// const sessionSchema = new mongoose.Schema({
-//   rehabPlan: {
-//     type: mongoose.Schema.Types.ObjectId,
-//     ref: 'RehabPlan',
-//     required: true
-//   },
-//   dayNumber: { // e.g., 1, 2, 3, etc.
-//     type: Number,
-//     required: true
-//   },
-//   categories: [{
-//     name: { // e.g., "Warm-Up"
-//       type: String,
-//       required: true
-//     },
-//     exercises: [{
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: 'Exercise'
-//     }]
-//   }],
-// }, { timestamps: true});

@@ -20,6 +20,8 @@ const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
     completedAt: { type: Date, default: Date.now }
   }],
 
+  
+
   // Tracks which sessions the user has completed and their feedback
   completedSessions: [{
     sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
