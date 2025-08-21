@@ -13,20 +13,40 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
     if (!planId || !exerciseId || !userId) {
       throw new ErrorHandler(400, 'required data is missing.');
     }
-    
-    const progress = await UserProgressModel.findOneAndUpdate(
-      { userId, rehabPlanId: planId },
+
+    const progress = await UserProgressModel.updateOne(
       {
-        // $addToSet prevents duplicate entries for the same exerciseId
-        $addToSet: {
+        userId,
+        rehabPLanId: planId,
+        "completedExercises.exerciseId": { $ne: exerciseId }
+      },
+      {
+        $push: {
           completedExercises: {
             exerciseId: exerciseId,
-            irritabilityScore: irritabilityScore // Can be null if not provided
+            irritabilityScore: irritabilityScore,
+            completedAt: new Date()
           }
         }
-      },
-      { new: true, upsert: true } // `upsert: true` creates the doc if it doesn't exist
-    );
+      }, 
+      {
+        upsert: true // Create the document if it doesn't exist
+      }
+    )
+    
+    // const progress = await UserProgressModel.findOneAndUpdate(
+    //   { userId, rehabPlanId: planId },
+    //   {
+    //     // $addToSet prevents duplicate entries for the same exerciseId
+    //     $addToSet: {
+    //       completedExercises: {
+    //         exerciseId: exerciseId,
+    //         irritabilityScore: irritabilityScore // Can be null if not provided
+    //       }
+    //     }
+    //   },
+    //   { new: true, upsert: true } // `upsert: true` creates the doc if it doesn't exist
+    // );
 
     res.status(200).json({
       success: true,
@@ -42,46 +62,283 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
 };
 
 // @route  POST /api/user-progress/session/completed
+// export const markSessionCompleteHandler = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const { planId, sessionId, difficultyRating } = req.body;
+//     const userId = req.userId;
+    
+//     if (!planId || !sessionId || !userId) {
+//       throw new ErrorHandler(400, 'required data is missing.');
+//     }
+ 
+//     const progress = await UserProgressModel.findOneAndUpdate(
+//       { userId, rehabPlanId: planId },
+//       {
+//         // $addToSet prevents duplicate entries for the same sessionId
+//         $addToSet: {
+//           completedSessions: {
+//             sessionId: sessionId,
+//             difficultyRating: difficultyRating
+//           }
+//         }
+//       },
+//       { new: true, upsert: true } // `upsert: true` creates the doc if it doesn't exist
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Session marked as complete.',
+//       data: progress
+//     });
+
+//   } catch (error) {
+//     console.error('markSessionCompleteHandler error', error);
+//     next(error);
+//   }
+// };
+
+export const markSessionCompleteAndStreakCount = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { planId, sessionId, difficultyRating } = req.body;
+    const userId = req.userId;
+
+    if (!planId || !sessionId || !userId) {
+      throw new ErrorHandler(400, 'Required data is missing.');
+    }
+
+    // Find user progress
+    let currentProgress = await UserProgressModel.findOne({
+      userId,
+      rehabPlanId: planId
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // First-time user (no progress or no completed sessions)
+    if (!currentProgress || !currentProgress.completedSessions?.length) {
+      const result = await UserProgressModel.findOneAndUpdate(
+        { userId, rehabPlanId: planId },
+        {
+          $addToSet: {
+            completedSessions: {
+              sessionId,
+              difficultyRating,
+              completedAt: new Date()
+            }
+          },
+          $set: {
+            streakCountWeekly: 1,
+            streakCountMonthly: 1
+          }
+        },
+        { new: true, upsert: true }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'First session completed, streaks started.',
+        data: result
+      });
+    }
+
+    // Get last completed session
+    const lastCompletedSession = currentProgress.completedSessions
+      .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0];
+
+    const lastCompletedSessionDate = new Date(lastCompletedSession.completedAt);
+    lastCompletedSessionDate.setHours(0, 0, 0, 0);
+
+    const timeDifference = today.getTime() - lastCompletedSessionDate.getTime();
+    const exactDaysDifference = Math.floor(timeDifference / (24 * 60 * 60 * 1000));
+
+    const isSameDay = exactDaysDifference === 0;
+    const isNextDay = exactDaysDifference === 1;
+    const isStreakLost = exactDaysDifference > 1;
+
+    // Build update payload
+    let updatePayload: any = {
+      $addToSet: {
+        completedSessions: {
+          sessionId,
+          difficultyRating,
+          completedAt: new Date()
+        }
+      }
+    };
+
+    if (isSameDay || isNextDay) {
+      updatePayload.$inc = {
+        streakCountWeekly: 1,
+        streakCountMonthly: 1
+      };
+    } else if (isStreakLost) {
+      updatePayload.$set = {
+        streakCountWeekly: 1,
+        streakCountMonthly: 1
+      };
+    }
+
+    const result = await UserProgressModel.findOneAndUpdate(
+      { userId, rehabPlanId: planId },
+      updatePayload,
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Session marked as complete and streak updated.',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('markSessionCompleteAndStreakCount error', error);
+    next(error);
+  }
+};
+
 export const markSessionCompleteHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { planId, sessionId, difficultyRating } = req.body;
     const userId = req.userId;
     
     if (!planId || !sessionId || !userId) {
-      throw new ErrorHandler(400, 'required data is missing.');
+      throw new ErrorHandler(400, 'Required data is missing.');
     }
  
-    const progress = await UserProgressModel.findOneAndUpdate(
-      { userId, rehabPlanId: planId },
-      {
-        // $addToSet prevents duplicate entries for the same sessionId
-        $addToSet: {
-          completedSessions: {
-            sessionId: sessionId,
-            difficultyRating: difficultyRating
-          }
+    // Find existing user progress for this plan
+    const currentProgress = await UserProgressModel.findOne({
+      userId, 
+      rehabPlanId: planId
+    });
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day for accurate comparison
+    
+    let streakCountWeekly = 0;
+    let streakCountMonthly = 0;
+    let isStreakLost = false;
+    let planStartDate = today; // Default to today for new users
+    
+    if (currentProgress) {
+      // Use existing plan start date if available, otherwise use today as fallback
+      planStartDate = currentProgress.planStartDate 
+        ? new Date(currentProgress.planStartDate)
+        : today;
+      
+      planStartDate.setHours(0, 0, 0, 0);
+      
+      const lastUpdatedDate = currentProgress.lastUpdated 
+        ? new Date(currentProgress.lastUpdated)
+        : null;
+      
+      if (lastUpdatedDate) {
+        lastUpdatedDate.setHours(0, 0, 0, 0);
+        
+        // Calculate days since last activity
+        const daysDifference = Math.floor((today.getTime() - lastUpdatedDate.getTime()) / (24 * 60 * 60 * 1000));
+        
+        // ===== DAILY STREAK LOGIC =====
+        if (daysDifference === 0) {
+          // Same day - maintain current weekly streak (don't increment)
+          streakCountWeekly = currentProgress.streakCountWeekly || 0;
+        } else if (daysDifference === 1) {
+          // Consecutive day - increment weekly streak by 1
+          streakCountWeekly = (currentProgress.streakCountWeekly || 0) + 1;
+        } else if (daysDifference > 1) {
+          // Gap of 2+ days - broken streak, reset to 1 (current session counts as day 1)
+          streakCountWeekly = 1;
+          isStreakLost = true;
+        }
+        
+        // ===== MONTHLY STREAK LOGIC =====
+        // Count all sessions completed in the current calendar month
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const sessionsThisMonth = currentProgress.completedSessions?.filter((session: any) => {
+          if (!session.completedAt) return false;
+          const sessionDate = new Date(session.completedAt);
+          sessionDate.setHours(0, 0, 0, 0);
+          return sessionDate >= startOfMonth;
+        }).length || 0;
+        
+        // Add current session to monthly count
+        streakCountMonthly = sessionsThisMonth + 1;
+        
+      } else {
+        // First session for existing progress document
+        streakCountWeekly = 1;
+        streakCountMonthly = 1;
+      }
+    } else {
+      // Brand new user progress - this is their first session ever
+      streakCountWeekly = 1;
+      streakCountMonthly = 1;
+      // Plan starts TODAY with their first session completion
+    }
+    
+    // ===== PREPARE DATABASE UPDATE =====
+    const updateData: any = {
+      $addToSet: {
+        completedSessions: {
+          sessionId,
+          difficultyRating,
+          completedAt: new Date()
         }
       },
-      { new: true, upsert: true } // `upsert: true` creates the doc if it doesn't exist
+      $set: {
+        streakCountWeekly,
+        streakCountMonthly,
+        lastUpdated: new Date()
+      }
+    };
+    
+    // Set planStartDate only for new progress documents (first session ever)
+    if (!currentProgress) {
+      updateData.$set.planStartDate = new Date(); // Plan starts when first session is completed
+    }
+    
+    // ===== EXECUTE DATABASE UPDATE =====
+    const progress = await UserProgressModel.findOneAndUpdate(
+      { userId, rehabPlanId: planId },
+      updateData,
+      { new: true, upsert: true } // Create new document if doesn't exist
     );
 
+    // ===== CALCULATE CURRENT WEEK BASED ON PLAN START =====
+    // This shows user which week they're in of their program
+    const daysSincePlanStart = Math.floor((today.getTime() - planStartDate.getTime()) / (24 * 60 * 60 * 1000));
+    const currentWeek = Math.floor(daysSincePlanStart / 7) + 1; // Week 1, 2, 3, etc.
+
+    // ===== SUCCESS RESPONSE =====
     res.status(200).json({
       success: true,
       message: 'Session marked as complete.',
-      data: progress
+      data: {
+        progress,
+        currentWeek, // Inform user which week they're in
+        streakInfo: {
+          weeklyStreak: streakCountWeekly,    // Consecutive days with sessions
+          monthlyStreak: streakCountMonthly,  // Sessions this calendar month
+          isStreakLost,                       // Whether streak was broken
+          previousWeeklyStreak: currentProgress?.streakCountWeekly || 0,
+          planStartDate: planStartDate        // When user started their journey
+        }
+      }
     });
 
   } catch (error) {
     console.error('markSessionCompleteHandler error', error);
-
     next(error);
   }
 };
 
+
 export const getUserProgressHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
-    const { userId, rehabPlanId } = req.params;
-    
+    // const { userId, rehabPlanId } = req.params;
+    const { rehabPlanId } = req.params;
+    const userId = req.userId
+
     if (!userId || !rehabPlanId) {
       throw new ErrorHandler(400, 'required data is missing.');
     }
@@ -611,12 +868,15 @@ export const getCompletedWithResilience = async (req: Request, res: Response) =>
 
     // 2) Get user progress (completed session + exercise signals)
     const progress = await UserProgressModel.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
-      rehabPlanId: new mongoose.Types.ObjectId(planId),
-    }).lean<any>();
-
+      userId: userId,
+      rehabPlanId: planId,
+    }).lean<any>(); 
+    console.log('progress', progress);
+    
     const completedExerciseArr = progress?.completedExercises || [];
     const completedSessionArr = progress?.completedSessions || [];
+    const weeklyStreak = progress?.streakCountWeekly;
+    const monthlyStreak = progress?.streakCountMonthly;
 
     const completedExerciseIds = new Set<string>(completedExerciseArr.map((e: any) => oid(e.exerciseId)));
     const completedSessionIds = new Set<string>(completedSessionArr.map((s: any) => oid(s.sessionId)));
@@ -700,6 +960,7 @@ export const getCompletedWithResilience = async (req: Request, res: Response) =>
     //   .select("weekNumber resilienceScore comments submittedAt")
     //   .sort({ weekNumber: 1 })
     //   .lean<any>();
+    
 
     // 8) Shape the payload
     return res.json({
@@ -708,11 +969,15 @@ export const getCompletedWithResilience = async (req: Request, res: Response) =>
       data: {
         planId: plan._id,
         planName: plan.name,
+        userId,
         completedWeeks,                         // number[]
         completedDays,                          // [{week, day}]
         completedSessions,                      // [{sessionId, title, week, day, difficultyRating, completedAt, totalExercises, completedExercises}]
         completedExercises,                     // [{exerciseId, name, week, day, sessionId, irritabilityScore, completedAt}]
         // weeklyResilience,                       // [{weekNumber, resilienceScore, comments, submittedAt}]
+        weeklyStreak,
+        monthlyStreak,
+        // progress
       },
     });
   } catch (err: any) {
@@ -779,3 +1044,27 @@ export const getProgressPercent = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: err.message || "Server error" });
   }
 };
+
+
+export const getUserStreakHanlderTesting = async(req: Request, res: Response, next: NextFunction) => {
+  const { userId, planId } = req.params;
+  try {
+    const today = Date.now();
+    const progress = await UserProgressModel.findOne({
+      userId,
+      rehabPlanId: planId,
+    }).lean<any>();
+
+    const completedSessionDate = progress.completedSessions
+
+    res.status(200).json({
+      success: true,
+      message: "User streak fetched successfully.",
+      data: completedSessionDate
+    })
+
+  } catch (error) {
+    console.error('getUserStreak error', error);
+    next(error);
+  }
+}

@@ -107,20 +107,28 @@ import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers"
 //   }
 // };
 
+export const createUserHanlder = async () => {
+  try {
+
+    
+  } catch (error) {
+    
+  }
+}
 
 export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
   req: Request, 
   res: Response, 
   next: NextFunction
 ) => {
-  try {
+  try { 
     const session = dummyStripeEvent.data.object;
     
     // Extract Data
     const email = session.customer_details?.email;
     const name = session.customer_details?.name || "Customer";
     const planId = session.metadata?.rehab_plan_id;
-    const rehabPlan = session.metadata?.rehab_plan_name || "Rehab Plan";
+    // const rehabPlan = session.metadata?.rehab_plan_name || "Rehab Plan";
 
     // Validate required fields
     if (!email || !planId) {

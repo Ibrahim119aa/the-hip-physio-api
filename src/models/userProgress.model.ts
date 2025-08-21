@@ -47,7 +47,12 @@ const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
     type: Number,
     default: 0
   },
-  streakCount: {
+  streakCountWeekly: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  streakCountMonthly: {
     type: Number,
     default: 0,
     min: 0
