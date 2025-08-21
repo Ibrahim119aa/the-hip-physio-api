@@ -6,47 +6,95 @@ import mongoose from "mongoose";
 
 // @route  POST /api/user-progress/exercise/completed
 export const markExerciseCompleteHandler = async (req: Request, res: Response, next: NextFunction) => {
+  const session = await mongoose.startSession();
   try {
-    const { planId, exerciseId, irritabilityScore } = req.body;
+    session.startTransaction();
+    console.log(req.body);
+    
+    const { planId, exerciseId, sessionId, irritabilityScore } = req.body;
     const userId = req.userId;
 
-    if (!planId || !exerciseId || !userId) {
-      throw new ErrorHandler(400, 'required data is missing.');
+    if (!planId || !exerciseId || !userId || !sessionId || !irritabilityScore) {
+      throw new ErrorHandler(409, 'Required data is missing.');
     }
 
-    const progress = await UserProgressModel.updateOne(
+    // Check if exercise is already completed
+    const existingExercise = await UserProgressModel.findOne({
+      userId,
+      rehabPlanId: planId,
+      "completedExercises": {
+        $elemMatch: {
+          exerciseId: exerciseId,
+          sessionId: sessionId
+        }
+      }
+    }).session(session);
+
+    if (existingExercise) {
+      throw new ErrorHandler(401, "Exercise was already marked as complete")
+    }
+
+    // Atomically find and update the document.
+    const progress = await UserProgressModel.findOneAndUpdate(
       {
         userId,
-        rehabPLanId: planId,
-        "completedExercises.exerciseId": { $ne: exerciseId }
+        rehabPlanId: planId,
       },
       {
         $push: {
           completedExercises: {
-            exerciseId: exerciseId,
-            irritabilityScore: irritabilityScore,
-            completedAt: new Date()
-          }
-        }
-      }, 
-      {
-        upsert: true // Create the document if it doesn't exist
+            sessionId,
+            exerciseId,
+            irritabilityScore,
+            completedAt: new Date(),
+          },
+        },
+      },
+      { 
+        new: true,
+        session: session 
       }
-    )
+    );
     
-    // const progress = await UserProgressModel.findOneAndUpdate(
-    //   { userId, rehabPlanId: planId },
-    //   {
-    //     // $addToSet prevents duplicate entries for the same exerciseId
-    //     $addToSet: {
-    //       completedExercises: {
-    //         exerciseId: exerciseId,
-    //         irritabilityScore: irritabilityScore // Can be null if not provided
-    //       }
-    //     }
-    //   },
-    //   { new: true, upsert: true } // `upsert: true` creates the doc if it doesn't exist
-    // );
+    if (!progress) throw new ErrorHandler(404, "User progress not found for this plan.");
+    
+    // --- PERCENTAGE CALCULATION ---
+
+    // 1) Load plan to get total number of exercises
+    const plan = await RehabPlanModel.findById(planId)
+      .populate({
+        path: "schedule.sessions",
+        model: "Session",
+        populate: { path: "exercises", model: "Exercise", select: "_id" },
+      })
+      .session(session)
+      .lean<any>();
+
+    if (!plan){
+      throw new ErrorHandler(404, "Rehab plan associated with this progress not found.");
+    } 
+
+    // 2) Calculate total exercises in the plan
+    const totalExercises = (plan.schedule || []).reduce((acc: number, item: any) => {
+      const sessions = item.sessions || [];
+      const exCount = sessions.reduce((sAcc: number, s: any) => sAcc + (s.exercises?.length || 0), 0);
+      return acc + exCount;
+    }, 0);
+
+    // 3) Get count of newly completed exercises from the updated document
+    const completedCount = progress.completedExercises.length;
+
+    const percent = totalExercises > 0
+      ? Math.min(100, Math.round((completedCount / totalExercises) * 100))
+      : 0;
+
+    // 4) Update progress percentage
+    progress.progressPercent = percent;
+    await progress.save({ session });
+
+    
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({
       success: true,
@@ -55,8 +103,14 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
     });
 
   } catch (error) {
+    // Rollback any changes made in this session
+    if(session.inTransaction()){
+      await session.abortTransaction();
+    }
+
+    session.endSession();
+
     console.error('markExerciseCompleteHandler error', error);
-    
     next(error);
   }
 };
@@ -1018,12 +1072,12 @@ export const getProgressPercent = async (req: Request, res: Response) => {
 
     // 2) Load progress
     const progress = await UserProgressModel.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
-      rehabPlanId: new mongoose.Types.ObjectId(planId),
+      userId: userId,
+      rehabPlanId: planId,
     }).lean<any>();
 
     const completedExercises = (progress?.completedExercises || []).length;
-
+   
     const percent = totalExercises > 0
       ? Math.min(100, Math.round((completedExercises / totalExercises) * 100))
       : 0;
