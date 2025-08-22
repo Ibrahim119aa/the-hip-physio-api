@@ -490,7 +490,7 @@ export const updateUserProfileHandler = async(req: Request<{}, {}, TUpdateUserRe
     res.status(200).json({
       success: true,
       message: 'User profile updated successfully',
-      data: user
+      // data: user
     });
   } catch (error) {
     console.error('updateUserProfileHandler error', error);
