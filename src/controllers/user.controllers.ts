@@ -11,6 +11,8 @@ import ErrorHandler from "../utils/errorHandlerClass";
 import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
 import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers";
 import bcrypt from 'bcrypt';
+import { TUpdateUserRequest, updateUserSchema } from "../validationSchemas/user.schema";
+import { uploadProfileImageToCloudinary } from "../utils/cloudinaryUploads/uploadProfileImageToCloudinary";
 
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 
@@ -181,7 +183,7 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
 export const adminLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    
+        
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
     }
@@ -223,6 +225,10 @@ export const adminLoginHandler = async (req: Request, res: Response, next: NextF
 export const userLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
+    console.log('email', email);
+    console.log('password', password);
+    
+    
     
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
@@ -444,29 +450,39 @@ export const getUserProfileHandler = async(req: Request, res: Response, next: Ne
   }
 }
 
-export const updateUserProfileHandler = async(req: Request, res: Response, next: NextFunction) => {
-  console.log(req.body);
+export const updateUserProfileHandler = async(req: Request<{}, {}, TUpdateUserRequest>, res: Response, next: NextFunction) => {
+  console.log('req.body', req.body);
   
   try {
+    const parsedBody = updateUserSchema.safeParse(req.body);
     const userId = req.userId;
-    const { name, occupation, dob, profile_photo, password } = req.body;
+    const file = req.profileImage
+    console.log('file', file);
+    console.log('parsedBody', parsedBody);
+      
 
+    if(!parsedBody.success) {
+      const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
+      throw new ErrorHandler(400, `Invalid request data: ${errorMessages.join(', ')}`);
+    }
+    
     if (!userId) throw new ErrorHandler(400, 'User ID is required');
 
     const user = await UserModel.findById(userId).select('-password');
 
     if (!user) throw new ErrorHandler(404, 'User not found');
 
+    if(file) {
+      const uploadImage = uploadProfileImageToCloudinary(file);
+      user.profile_photo = await uploadImage;
+    }
+
     // Update user profile
-    user.name = name || user.name;
-    user.occupation = occupation || user.occupation;
-    user.dob = dob || user.dob;
-    user.profile_photo = profile_photo || user.profile_photo;
-    user.Password = password || user.password;
-    if(password) {
-      const salt = await bcrypt.genSalt(Number(config.saltFactor))
-      const hashedPassword = await bcrypt.hash(password, salt);
-      user.password = hashedPassword;
+    user.name = parsedBody.data.name || user.name;
+    user.occupation = parsedBody.data.occupation || user.occupation;
+    user.dob = parsedBody.data.dob || user.dob;;
+    if(parsedBody.data.password) {
+      user.password = parsedBody.data.password;
     }
 
     await user.save();

@@ -13,6 +13,7 @@ import {
 import {  } from "../middlewares/isAdmin.middleware";
 import { isAdminAuthenticated, isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
+import { uploadProfileImage, validateProfileImageUpload } from "../middlewares/upload.middleware";
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.route("/reset-password").post(resetPasswordHandler)
 router.route("/login").post(userLoginHandler)
 router.route("/profile")
   .get(isUserAuthenticated, getUserProfileHandler)
-  .put(isUserAuthenticated, updateUserProfileHandler);
+  .put(isUserAuthenticated, uploadProfileImage, validateProfileImageUpload, updateUserProfileHandler);
 
 // Admin routes (protected by admin middleware)
 router.route("/admin/login").post(adminLoginHandler)

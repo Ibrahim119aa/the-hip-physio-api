@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 
 import ErrorHandler from "../utils/errorHandlerClass";
 import { uploadVideoToCloudinary } from "../utils/cloudinaryUploads/uploadVideoToCloudinary";
-import { uploadImageToCloudinary } from "../utils/cloudinaryUploads/uploadImageToCloudinary";
+import { uploadImageToCloudinary } from "../utils/cloudinaryUploads/uploadExerciseThumbnailToCloudinary";
 import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudinaryUploads/extractPublicIdFromUrl";
 import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
 import mongoose from "mongoose";

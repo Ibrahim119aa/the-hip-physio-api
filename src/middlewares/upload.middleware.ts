@@ -5,23 +5,46 @@ import ErrorHandler from '../utils/errorHandlerClass';
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
 
-// File filter function
-const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  console.log('Processing file:', file.fieldname, file.mimetype);
+// // File filter function
+// const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+//   console.log('Processing file:', file.fieldname, file.mimetype);
   
-  // Check file type based on field name
+//   // Check file type based on field name
+//   if (file.fieldname === 'video') {
+//     if (!file.mimetype.startsWith('video/')) {
+//       return cb(new ErrorHandler(400, 'Only video files are allowed for video upload'));
+//     }
+//   } else if (file.fieldname === 'thumbnail') {
+//     if (!file.mimetype.startsWith('image/')) {
+//       return cb(new ErrorHandler(400, 'Only image files are allowed for thumbnail upload'));
+//     }
+//   } else {
+//     // Log unexpected field names for debugging
+//     console.log('Unexpected field name:', file.fieldname);
+//     return cb(new ErrorHandler(400, `Unexpected field name: ${file.fieldname}. Expected fields are 'video' and 'thumbnail'`));
+//   }
+
+//   cb(null, true);
+// };
+
+const fileFilter = ( req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback ) => {
+  console.log('Processing file:', file.fieldname, file.mimetype);
+
   if (file.fieldname === 'video') {
     if (!file.mimetype.startsWith('video/')) {
       return cb(new ErrorHandler(400, 'Only video files are allowed for video upload'));
     }
   } else if (file.fieldname === 'thumbnail') {
     if (!file.mimetype.startsWith('image/')) {
-      return cb(new ErrorHandler(400, 'Only image files are allowed for thumbnail upload'));
+      return cb(new ErrorHandler(400, 'Only image files are allowed for thumbnail upload (e.g., JPEG, PNG)'));
+    }
+  } else if (file.fieldname === 'profileImage') {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new ErrorHandler(400, 'Only image files are allowed for profile image upload'));
     }
   } else {
-    // Log unexpected field names for debugging
     console.log('Unexpected field name:', file.fieldname);
-    return cb(new ErrorHandler(400, `Unexpected field name: ${file.fieldname}. Expected fields are 'video' and 'thumbnail'`));
+    return cb(new ErrorHandler(400, `Unexpected field name: ${file.fieldname}. Allowed fields: video, thumbnail, profileImage`));
   }
 
   cb(null, true);
@@ -42,6 +65,10 @@ export const uploadVideo = upload.single('video');
 
 // Middleware for single image upload
 export const uploadImage = upload.single('thumbnail');
+
+// Middleware for single profile image upload
+export const uploadProfileImage = upload.single('profileImage');
+
 
 // Middleware for both video and thumbnail upload
 export const uploadVideoAndThumbnail = upload.fields([
@@ -143,12 +170,41 @@ export const validateExerciseUpdate = (
   }
 };
 
+export const validateProfileImageUpload = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const file = req.file;
+
+    // If no file provided, just continue (image update is optional)
+    if (!file) {
+      return next();
+    }
+
+    if (!file.mimetype.startsWith('image/')) {
+      throw new ErrorHandler(400, 'Profile image must be a valid image format (JPEG, PNG, etc.)');
+    }
+
+    // Attach to request
+    req.profileImage = file;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
 // Extend Request interface
 declare global {
   namespace Express {
     interface Request {
       videoFile?: Express.Multer.File;
       thumbnailFile?: Express.Multer.File;
+      profileImage?: Express.Multer.File;
     }
   }
 } 

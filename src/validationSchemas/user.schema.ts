@@ -9,8 +9,7 @@ export const userSchema = z.object({
     .max(100, 'Name must be less than 100 characters')
     .transform((value) => domPurify.sanitize(value.trim())),
 
-  email: z
-    .email({ error: "Invalid email format" })
+  email: z.email({ error: "Invalid email format" })
     .transform((value) => domPurify.sanitize(value.trim())),
 
   password: z.string()
@@ -18,14 +17,20 @@ export const userSchema = z.object({
     .max(100, 'Password must be less than 100 characters')
     .transform((value) => domPurify.sanitize(value.trim())),
 
-  // --- optional (same style, no changes) ---
+  // --- optional ---
   occupation: z.string()
     .optional()
     .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim())),
 
-  dob: z.string()
-    .optional()
-    .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim())),
+  // Zod v4 style
+  dob: z.coerce
+    .date({ message: "Invalid date of birth format use (YYYY-MM-DD)" })
+    .max(new Date(), { message: "DOB cannot be in the future" })
+    .optional(),
+    
+  // dob: z.string()
+  //   .optional()
+  //   .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim())),
 
   profile_photo: z.string()
     .optional()
@@ -60,3 +65,28 @@ export const userSchema = z.object({
 
   resetPasswordTokenExpiresAt: z.date().nullable().optional(),
 });
+
+export const updateUserSchema = userSchema.partial().extend({
+  name: z.string()
+    .min(1, 'Name is required')
+    .max(100, 'Name must be less than 100 characters')
+    .optional()
+    .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim())),
+
+  email: z.string()
+    .email({ message: "Invalid email format" })
+    .optional()
+    .transform((value) =>
+      value === undefined ? value : domPurify.sanitize(value.trim())
+    ),
+
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(100, 'Password must be less than 100 characters')
+    .optional()
+    .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim())),
+});
+
+export type TUserRequest = z.infer<typeof userSchema>;
+export type TUpdateUserRequest = z.infer<typeof updateUserSchema>;
+
