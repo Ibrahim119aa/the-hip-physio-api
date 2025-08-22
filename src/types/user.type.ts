@@ -4,20 +4,19 @@ export type TUser = {
   email: string;
   password: string;
   name: string;
+  occupation: string;
+  dob: string;
   profile_photo: string;
   purchasedPlans: Types.ObjectId[];
-  planStartDate: Date;
+  planStartDate: Date | null;
   notifications: Types.ObjectId[];
-  fcmToken: String;
-  streak: number;
-  progress: number;
+  fcmToken: String | null;
   status: "active" | "inactive",
   role: 'user' | 'admin';
   resetPasswordToken: string | null,
   resetPasswordTokenExpiresAt: Date | null,
   startDate: Date;
   lastLogin: Date;
-  therapistPhoto: string;
 }
 
 export type TUserDocument = TUser & Document;

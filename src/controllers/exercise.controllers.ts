@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 
 import ErrorHandler from "../utils/errorHandlerClass";
 import { uploadVideoToCloudinary } from "../utils/cloudinaryUploads/uploadVideoToCloudinary";
-import { uploadImageToCloudinary } from "../utils/cloudinaryUploads/uploadImageToCloudinary";
+import { uploadExerciseThumbnailToCloudinary } from "../utils/cloudinaryUploads/uploadExerciseThumbnailToCloudinary";
 import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudinaryUploads/extractPublicIdFromUrl";
 import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
 import mongoose from "mongoose";
@@ -62,7 +62,7 @@ import { createExerciseSchema, exerciseCategoryParamSchema, ExerciseParamsSchema
     // Upload thumbnail if provided, otherwise generate from video
     if (req.thumbnailFile) {
       console.log('Uploading thumbnail to Cloudinary...');
-      uploadedThumbnailUrl = await uploadImageToCloudinary(req.thumbnailFile);
+      uploadedThumbnailUrl = await uploadExerciseThumbnailToCloudinary(req.thumbnailFile);
     } else {
       console.log('Generating thumbnail from video...');;
       
@@ -216,7 +216,7 @@ export const updateExerciseHandler = async (req: Request<TExerciseParams, {}, TU
       }
 
       // Upload new thumbnail
-      uploadedThumbnailUrl = await uploadImageToCloudinary(req.thumbnailFile);
+      uploadedThumbnailUrl = await uploadExerciseThumbnailToCloudinary(req.thumbnailFile);
       updateData.thumbnailUrl = uploadedThumbnailUrl;
     } else if (updateData.videoUrl) {
       // Generate thumbnail from video URL (only if videoUrl is updated)

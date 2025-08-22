@@ -23,7 +23,8 @@ export type TUserProgress = {
   currentDay: number;
   progressPercent: number;
   resiliencyScore: number;
-  streakCount: number;
+  streakCountWeekly: number;
+  streakCountMonthly: number;
   lastUpdated: Date;
 }
 

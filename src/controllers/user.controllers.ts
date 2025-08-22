@@ -10,6 +10,10 @@ import { dummyStripeEvent } from "../utils/DummyData";
 import ErrorHandler from "../utils/errorHandlerClass";
 import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
 import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers";
+import bcrypt from 'bcrypt';
+import { TUpdateUserRequest, updateUserSchema } from "../validationSchemas/user.schema";
+import { uploadProfileImageToCloudinary } from "../utils/cloudinaryUploads/uploadProfileImageToCloudinary";
+
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 
 
@@ -107,20 +111,19 @@ import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers"
 //   }
 // };
 
-
 export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
   req: Request, 
   res: Response, 
   next: NextFunction
 ) => {
-  try {
+  try { 
     const session = dummyStripeEvent.data.object;
     
     // Extract Data
     const email = session.customer_details?.email;
     const name = session.customer_details?.name || "Customer";
     const planId = session.metadata?.rehab_plan_id;
-    const rehabPlan = session.metadata?.rehab_plan_name || "Rehab Plan";
+    // const rehabPlan = session.metadata?.rehab_plan_name || "Rehab Plan";
 
     // Validate required fields
     if (!email || !planId) {
@@ -180,7 +183,7 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
 export const adminLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    
+        
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
     }
@@ -222,6 +225,10 @@ export const adminLoginHandler = async (req: Request, res: Response, next: NextF
 export const userLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
+    console.log('email', email);
+    console.log('password', password);
+    
+    
     
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
@@ -415,3 +422,78 @@ export const createFirstAdminHandler = async (req: Request, res: Response, next:
   }
 };
 
+// USER PROFILE HANDLERS
+
+export const getUserProfileHandler = async(req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      throw new ErrorHandler(400, 'User ID is required');
+    }
+
+    const user = await UserModel.findById(userId)
+      .select('-password') // Exclude password from response
+      .populate('purchasedPlans', 'name price') // Populate purchased plans with name and price
+      .populate('notifications', 'message createdAt'); // Populate notifications
+
+    if (!user) {
+      throw new ErrorHandler(404, 'User not found');
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('getUserProfileHandler error', error);
+    next(error);
+  }
+}
+
+export const updateUserProfileHandler = async(req: Request<{}, {}, TUpdateUserRequest>, res: Response, next: NextFunction) => {
+  console.log('req.body', req.body);
+  
+  try {
+    const parsedBody = updateUserSchema.safeParse(req.body);
+    const userId = req.userId;
+    const file = req.profileImage
+    console.log('file', file);
+    console.log('parsedBody', parsedBody);
+      
+
+    if(!parsedBody.success) {
+      const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
+      throw new ErrorHandler(400, `Invalid request data: ${errorMessages.join(', ')}`);
+    }
+    
+    if (!userId) throw new ErrorHandler(400, 'User ID is required');
+
+    const user = await UserModel.findById(userId).select('-password');
+
+    if (!user) throw new ErrorHandler(404, 'User not found');
+
+    if(file) {
+      const uploadImage = uploadProfileImageToCloudinary(file);
+      user.profile_photo = await uploadImage;
+    }
+
+    // Update user profile
+    user.name = parsedBody.data.name || user.name;
+    user.occupation = parsedBody.data.occupation || user.occupation;
+    user.dob = parsedBody.data.dob || user.dob;;
+    if(parsedBody.data.password) {
+      user.password = parsedBody.data.password;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'User profile updated successfully',
+      // data: user
+    });
+  } catch (error) {
+    console.error('updateUserProfileHandler error', error);
+    next(error);
+  }
+}

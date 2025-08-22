@@ -15,6 +15,7 @@ const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
 
   // Tracks which specific exercises the user has completed and their feedback
   completedExercises: [{
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
     exerciseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exercise' },
     irritabilityScore: { type: Number, min: 0, max: 10 },
     completedAt: { type: Date, default: Date.now }
@@ -45,7 +46,12 @@ const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
     type: Number,
     default: 0
   },
-  streakCount: {
+  streakCountWeekly: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  streakCountMonthly: {
     type: Number,
     default: 0,
     min: 0
@@ -54,12 +60,6 @@ const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
     type: Date,
     default: Date.now
   }
-});
-
-// Middleware to update lastUpdated timestamp before saving
-userProgressSchema.pre('save', function(next) {
-  this.lastUpdated = new Date();
-  next();
 });
 
 // Ensure a user has only one progress document per plan

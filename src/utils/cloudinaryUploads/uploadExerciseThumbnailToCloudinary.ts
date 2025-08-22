@@ -2,7 +2,7 @@ import cloudinary from "../../config/cloudinaryConfig";
 import ErrorHandler from "../errorHandlerClass";
 
 // Upload image/thumbnail to Cloudinary
-export const uploadImageToCloudinary = async (file: Express.Multer.File): Promise<string> => {
+export const uploadExerciseThumbnailToCloudinary = async (file: Express.Multer.File): Promise<string> => {
   try {
     if (!file) {
       throw new ErrorHandler(400, 'No image file provided');

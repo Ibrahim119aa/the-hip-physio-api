@@ -260,8 +260,11 @@ export const getRehabPlanByIdHandler = async (
       rehabPlanId: planId,
     }).lean<any>();
 
-    const completedExerciseIds = new Set<string>(
-      (progress?.completedExercises || []).map((e: any) => oid(e.exerciseId))
+    // const completedExerciseIds = new Set<string>(
+    //   (progress?.completedExercises || []).map((e: any) => oid(e.exerciseId))
+    // );
+    const completedExerciseKeys = new Set<string>(
+      (progress?.completedExercises || []).map( (e: any) => `${oid(e.sessionId)}-${oid(e.exerciseId)}` )
     );
     const completedSessionIds = new Set<string>(
       (progress?.completedSessions || []).map((s: any) => oid(s.sessionId))
@@ -318,11 +321,17 @@ export const getRehabPlanByIdHandler = async (
           const exercises = (s.exercises || []) as any[];
 
           const sTotal = exercises.length;
+          // const sDoneCount = exercises.reduce(
+          //   (acc, ex) => acc + (completedExerciseIds.has(oid(ex._id)) ? 1 : 0),
+          //   0
+          // );
+    
           const sDoneCount = exercises.reduce(
-            (acc, ex) => acc + (completedExerciseIds.has(oid(ex._id)) ? 1 : 0),
+            (acc, ex) =>
+              acc + (completedExerciseKeys.has(`${sessionId}-${oid(ex._id)}`) ? 1 : 0),
             0
           );
-
+    
           const sCompleted =
             (sTotal > 0 && sDoneCount === sTotal) ||
             completedSessionIds.has(sessionId);
@@ -347,7 +356,7 @@ export const getRehabPlanByIdHandler = async (
               reps: ex.reps,
               estimatedDuration: ex.estimatedDuration,
               videoUrl: ex.videoUrl,
-              completed: completedExerciseIds.has(oid(ex._id)),
+              completed: completedExerciseKeys.has(`${sessionId}-${oid(ex._id)}`),
               // populated category object if available
               category: ex.category ?? null,
               // keep any other fields you want to expose (difficulty, tags, etc.)
@@ -361,12 +370,10 @@ export const getRehabPlanByIdHandler = async (
         totals.totalExercises += dayTotalExercises;
         totals.completedExercises += dayCompletedExercises;
 
-        const dayCompleted =
-          dayTotalExercises > 0 && dayCompletedExercises === dayTotalExercises;
+        const dayCompleted = dayTotalExercises > 0 && dayCompletedExercises === dayTotalExercises;
 
         // Day unlocked: week must be unlocked; Day 1 always unlocked; Day N>1 only if previous day completed
-        const dayUnlocked =
-          weekUnlocked && (dayItem.day === 1 ? true : prevDayCompleted);
+        const dayUnlocked = weekUnlocked && (dayItem.day === 1 ? true : prevDayCompleted);
 
         daysOut.push({
           day: dayItem.day,

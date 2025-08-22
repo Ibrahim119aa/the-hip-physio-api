@@ -109,60 +109,27 @@ export const getExerciseBySessionId = async(req: Request, res: Response, next: N
   }
 }
 
-// export const markSessionCompleteHandler = async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { planId, sessionId, difficultyRating } = req.body;
-//     const userId = req.user.id;
+export const getSessionsForRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { planId } = req.params;
 
-//     // 1. Find the session template to know which exercises are required
-//     const sessionTemplate = await SessionModel.findById(sessionId);
-//     if (!sessionTemplate) {
-//       throw new ErrorHandler(404, 'Session not found.');
-//     }
-//     const requiredExerciseIds = sessionTemplate.exercises.map((id: any) => id.toString());
+    if (!planId) {
+      throw new ErrorHandler(400, 'Rehab Plan ID is required');
+    }
 
-//     // 2. Find the user's progress document
-//     const userProgress = await UserProgressModel.findOne({ userId, rehabPlanId: planId });
-//     if (!userProgress) {
-//       throw new ErrorHandler(404, 'User progress not found. Please complete an exercise first.');
-//     }
+    const sessions = await SessionModel.find({ rehabPlan: planId })
+      .populate({
+        path: 'exercises',
+        model: 'Exercise'
+      });
 
-//     // 3. VALIDATION: Check if all exercises in this session are marked complete
-//     const completedExerciseIds = new Set(userProgress.completedExercises.map((e: any) => e.exerciseId.toString()));
-//     const allExercisesCompleted = requiredExerciseIds.every((id: any) => completedExerciseIds.has(id));
+    res.status(200).json({
+      success: true,
+      data: sessions
+    });
 
-//     if (!allExercisesCompleted) {
-//         throw new ErrorHandler(400, 'Please complete all exercises in this session before marking it as complete.');
-//     }
-
-//     // 4. Update the session as complete
-//     userProgress.completedSessions.addToSet({ sessionId, difficultyRating });
-
-//     // 5. LOGIC: Unlock the next day or week
-//     const planTemplate = await RehabPlanModel.findById(planId);
-//     const totalDaysInWeek = Math.max(...planTemplate.schedule.filter((s: any) => s.week === userProgress.currentWeek).map((s: any) => s.day));
-    
-//     if (userProgress.currentDay < totalDaysInWeek) {
-//         // Move to next day
-//         userProgress.currentDay += 1;
-//     } else {
-//         // Move to next week
-//         userProgress.currentWeek += 1;
-//         userProgress.currentDay = 1; // Reset to Day 1 of the new week
-//     }
-
-//     await userProgress.save();
-
-//     res.status(200).json({
-//         success: true,
-//         message: `Session complete! Day ${userProgress.currentDay} of Week ${userProgress.currentWeek} is now unlocked.`,
-//         data: {
-//             currentWeek: userProgress.currentWeek,
-//             currentDay: userProgress.currentDay
-//         }
-//     });
-
-//   } catch (error) {
-//     next(error);
-//   }
-// };
+  } catch (error) {
+    console.error('getAllSessionsHandler error:', error);
+    next(error);
+  }
+}
