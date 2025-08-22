@@ -20,6 +20,14 @@ const userSchema = new mongoose.Schema<TUserDocument>({
     required: true,
     trim: true
   },
+  occupation: {
+    type: String,
+    trim: true
+  },
+  dob: {
+    type: String,
+    trim: true
+  },
   profile_photo: {
     type: String,
     default: ''
@@ -53,14 +61,6 @@ const userSchema = new mongoose.Schema<TUserDocument>({
     type: Date,
     default: Date.now
   },
-  streak: {
-    type: Number,
-    default: 0
-  },
-  progress: {
-    type: Number,
-    default: 0
-  },
   role: {
     type: String,
     enum: ['user', 'admin'],
@@ -73,9 +73,8 @@ const userSchema = new mongoose.Schema<TUserDocument>({
   resetPasswordTokenExpiresAt: {
     type: Date,
     default: null,
-  },
-  therapistPhoto: String
-  
+  }
+
 },{
   timestamps: true
 });

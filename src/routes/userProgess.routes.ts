@@ -1,14 +1,8 @@
 import { Router } from "express";
-import { getCompletedWithResilience, getPlanProgressStatus, getProgressPercent, getUserLogbookHandler, getUserProgressHandler, getUserStreakHanlder, getUserStreakHanlderTesting, markExerciseCompleteHandler, markSessionCompleteAndStreakCount, markSessionCompleteHandler } from "../controllers/userProgress.controllers";
+import { getCompletedWithResilience, getPlanProgressStatus, getProgressPercent, getUserLogbookHandler, getUserProgressHandler, getUserStreakHanlder, getUserStreakHanlderTesting, markExerciseCompleteHandler, markSessionCompleteAndStreakCount } from "../controllers/userProgress.controllers";
 import { isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 
 const router = Router();
-
-// router.route("/exercise/completed").post(markExerciseCompleteHandler);
-// router.route("/session/completed").post(markSessionCompleteHandler);
-// router.route("/:userId/:rehabPlanId").get(getUserProgressHandler);
-// router.route("/streak/:userId/:rehabPlanId").get(getUserStreakHanlder);
-// router.route("/:planId/progress-status").get(getPlanProgressStatus);
 
 router.route("/exercise/completed").post(isUserAuthenticated, markExerciseCompleteHandler);
 router.route("/session/completed").post(isUserAuthenticated, markSessionCompleteAndStreakCount);

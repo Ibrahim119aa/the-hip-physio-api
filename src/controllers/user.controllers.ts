@@ -10,6 +10,8 @@ import { dummyStripeEvent } from "../utils/DummyData";
 import ErrorHandler from "../utils/errorHandlerClass";
 import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
 import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers";
+import bcrypt from 'bcrypt';
+
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 
 
@@ -106,15 +108,6 @@ import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers"
 //     return res.status(500).send('Internal Server Error');
 //   }
 // };
-
-export const createUserHanlder = async () => {
-  try {
-
-    
-  } catch (error) {
-    
-  }
-}
 
 export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
   req: Request, 
@@ -423,3 +416,68 @@ export const createFirstAdminHandler = async (req: Request, res: Response, next:
   }
 };
 
+// USER PROFILE HANDLERS
+
+export const getUserProfileHandler = async(req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      throw new ErrorHandler(400, 'User ID is required');
+    }
+
+    const user = await UserModel.findById(userId)
+      .select('-password') // Exclude password from response
+      .populate('purchasedPlans', 'name price') // Populate purchased plans with name and price
+      .populate('notifications', 'message createdAt'); // Populate notifications
+
+    if (!user) {
+      throw new ErrorHandler(404, 'User not found');
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('getUserProfileHandler error', error);
+    next(error);
+  }
+}
+
+export const updateUserProfileHandler = async(req: Request, res: Response, next: NextFunction) => {
+  console.log(req.body);
+  
+  try {
+    const userId = req.userId;
+    const { name, occupation, dob, profile_photo, password } = req.body;
+
+    if (!userId) throw new ErrorHandler(400, 'User ID is required');
+
+    const user = await UserModel.findById(userId).select('-password');
+
+    if (!user) throw new ErrorHandler(404, 'User not found');
+
+    // Update user profile
+    user.name = name || user.name;
+    user.occupation = occupation || user.occupation;
+    user.dob = dob || user.dob;
+    user.profile_photo = profile_photo || user.profile_photo;
+    user.Password = password || user.password;
+    if(password) {
+      const salt = await bcrypt.genSalt(Number(config.saltFactor))
+      const hashedPassword = await bcrypt.hash(password, salt);
+      user.password = hashedPassword;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'User profile updated successfully',
+      data: user
+    });
+  } catch (error) {
+    console.error('updateUserProfileHandler error', error);
+    next(error);
+  }
+}

@@ -8,7 +8,7 @@ export const dummyStripeEvent = {
       id: "cs_test_abc123xyz789",
       object: "checkout.session",
       customer_details: {
-        email: "muzafar@geeksroot.com",
+        email: "user4@geeksroot.com",
         name: "John Doe"
       },
       payment_status: "paid",
@@ -16,7 +16,7 @@ export const dummyStripeEvent = {
       currency: "usd",
       metadata: {
         rehab_plan_id: "64de7d1e4f2a0c001fbcd123",
-        rehab_plan_name: "Beginner 4-Week Rehab Plan"
+        // rehab_plan_name: "Beginner 4-Week Rehab Plan"
       },
       mode: "payment",
       payment_intent: "pi_3ExamplePaymentIntent",
