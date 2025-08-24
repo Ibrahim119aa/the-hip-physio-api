@@ -45,8 +45,22 @@ const userSchema = new mongoose.Schema<TUserDocument>({
   }],
   // For Push Notifications
   fcmToken: {
-    type: String,
-    default: null
+    token: {
+      type: String,
+      default: null
+    },
+    platform: {
+      type: String,
+      enum: ['ios', 'android', 'web'],
+    },
+    deviceId: {
+      type: String,
+      default: null
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now
+    }
   },
   status: {
     type: String,

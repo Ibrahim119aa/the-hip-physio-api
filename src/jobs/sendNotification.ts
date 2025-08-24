@@ -11,7 +11,9 @@ const chunk = <T,>(arr: T[], size = 500) => {
 };
 
 const defineSendNotificationJob =  (agenda: any) => {
+
   agenda.define('send-notification', async (job: Job) => {
+    
     const { notificationId } = job.attrs.data as { notificationId: string };
     const notif = await NotificationsModel.findById(notificationId);
 
@@ -19,7 +21,7 @@ const defineSendNotificationJob =  (agenda: any) => {
 
     // Fetch recipients
     let users = [];
-    
+
     if (notif.target === 'all') {
       users = await UserModel.find({ 'fcmTokens.0': { $exists: true } }, { fcmTokens: 1 }).lean();
     } else {

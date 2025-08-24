@@ -1,7 +1,7 @@
 import { Router } from "express";
 import NotificationModel from "../models/notifications.model";
 import { isAdminAuthenticated } from "../middlewares/isAuthenticated.middleware";
-import { cancelNotificationHandler, createAndSheduleNotificationHandler, getNotificationListHandler } from "../controllers/notification.controllers";
+import { cancelNotificationHandler, createAndSheduleNotificationHandler, fireBaseHealthCheckHandler, getNotificationListHandler } from "../controllers/notification.controllers";
 
 const router = Router();
 
@@ -11,5 +11,6 @@ router.route("/")
   .get(isAdminAuthenticated, getNotificationListHandler);
 
 router.route('/:notificationId/cancel').post(isAdminAuthenticated, cancelNotificationHandler)
+router.route('/health/firebase').get(fireBaseHealthCheckHandler);
 
 export default router;

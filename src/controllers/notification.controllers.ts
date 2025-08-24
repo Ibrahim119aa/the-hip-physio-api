@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-
-import { INotification } from '../types/notification.types';
 import NotificationModel from '../models/notifications.model';
-import { sendFcmNotification } from '../utils/send';
 import ErrorHandler from '../utils/errorHandlerClass';
 import { agenda } from '../jobs/agenda';
+import { auth, messaging } from '../config/firebase';
+// import { INotification } from '../types/notification.types';
+// import { sendFcmNotification } from '../utils/send';
 
 
 export const createAndSheduleNotificationHandler = async (req: Request, res: Response, next: NextFunction) => {
@@ -108,168 +108,195 @@ export const getNotificationListHandler = async( req: Request,  res: Response,  
   }
 }
 
-/**
- * @desc    Create and send a notification immediately or schedule it.
- * @route   POST /api/notifications/send
- * @access  Private (Admin)
- */
-export const createAndSendNotification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const { title, body, targetGroup, targetSegment, recipients, data, scheduledTime } = req.body;
+// /**
+//  * @desc    Create and send a notification immediately or schedule it.
+//  * @route   POST /api/notifications/send
+//  * @access  Private (Admin)
+//  */
+// export const createAndSendNotification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+//     try {
+//         const { title, body, targetGroup, targetSegment, recipients, data, scheduledTime } = req.body;
 
-        // Basic validation
-        if (!title || !body || !targetGroup) {
-            res.status(400).json({ success: false, message: 'Title, body, and targetGroup are required.' });
-            return;
-        }
+//         // Basic validation
+//         if (!title || !body || !targetGroup) {
+//             res.status(400).json({ success: false, message: 'Title, body, and targetGroup are required.' });
+//             return;
+//         }
 
-        const notificationData: Partial<INotification> = {
-            title,
-            body,
-            targetGroup,
-            targetSegment,
-            recipients,
-            data,
-        };
+//         const notificationData: Partial<INotification> = {
+//             title,
+//             body,
+//             targetGroup,
+//             targetSegment,
+//             recipients,
+//             data,
+//         };
 
-        // If scheduledTime is provided, schedule the notification for later
-        if (scheduledTime) {
-            const scheduleDate = new Date(scheduledTime);
-            if (isNaN(scheduleDate.getTime()) || scheduleDate <= new Date()) {
-                res.status(400).json({ success: false, message: 'Invalid scheduled time. Must be a future date.' });
-                return;
-            }
+//         // If scheduledTime is provided, schedule the notification for later
+//         if (scheduledTime) {
+//             const scheduleDate = new Date(scheduledTime);
+//             if (isNaN(scheduleDate.getTime()) || scheduleDate <= new Date()) {
+//                 res.status(400).json({ success: false, message: 'Invalid scheduled time. Must be a future date.' });
+//                 return;
+//             }
             
-            notificationData.scheduledTime = scheduleDate;
-            notificationData.status = 'Scheduled';
+//             notificationData.scheduledTime = scheduleDate;
+//             notificationData.status = 'Scheduled';
 
-            const scheduledNotification = await NotificationModel.create(notificationData);
+//             const scheduledNotification = await NotificationModel.create(notificationData);
 
-            res.status(201).json({
-                success: true,
-                message: 'Notification scheduled successfully.',
-                data: scheduledNotification
-            });
-            return;
-        }
+//             res.status(201).json({
+//                 success: true,
+//                 message: 'Notification scheduled successfully.',
+//                 data: scheduledNotification
+//             });
+//             return;
+//         }
 
-        // If no scheduledTime, send immediately
-        // In a real app, you would get FCM tokens based on the targetGroup
-        const fcmTokens: string[] = []; // Placeholder: Replace with logic to get user FCM tokens
+//         // If no scheduledTime, send immediately
+//         // In a real app, you would get FCM tokens based on the targetGroup
+//         const fcmTokens: string[] = []; // Placeholder: Replace with logic to get user FCM tokens
 
-        // This is where you would implement logic to get tokens based on:
-        // targetGroup: 'All' -> Get all user tokens
-        // targetGroup: 'Segment' -> Get tokens for users in targetSegment
-        // targetGroup: 'SelectedUsers' -> Get tokens for users in recipients array
+//         // This is where you would implement logic to get tokens based on:
+//         // targetGroup: 'All' -> Get all user tokens
+//         // targetGroup: 'Segment' -> Get tokens for users in targetSegment
+//         // targetGroup: 'SelectedUsers' -> Get tokens for users in recipients array
 
-        if (fcmTokens.length === 0 && targetGroup !== 'All') {
-             console.warn(`No FCM tokens found for the selected group: ${targetGroup}`);
-             // Depending on requirements, you might want to stop here or proceed
-        }
+//         if (fcmTokens.length === 0 && targetGroup !== 'All') {
+//              console.warn(`No FCM tokens found for the selected group: ${targetGroup}`);
+//              // Depending on requirements, you might want to stop here or proceed
+//         }
 
-        // Call the FCM service to send the push notification
-        const fcmResponse = await sendFcmNotification(fcmTokens, title, body, data);
+//         // Call the FCM service to send the push notification
+//         const fcmResponse = await sendFcmNotification(fcmTokens, title, body, data);
 
-        notificationData.status = 'Sent';
-        notificationData.sentTime = new Date();
+//         notificationData.status = 'Sent';
+//         notificationData.sentTime = new Date();
         
-        const sentNotification = await NotificationModel.create(notificationData);
+//         const sentNotification = await NotificationModel.create(notificationData);
 
-        res.status(201).json({ 
-            success: true, 
-            message: 'Notification sent successfully.',
-            data: sentNotification,
-            fcmInfo: fcmResponse // Information from the FCM service
-        });
+//         res.status(201).json({ 
+//             success: true, 
+//             message: 'Notification sent successfully.',
+//             data: sentNotification,
+//             fcmInfo: fcmResponse // Information from the FCM service
+//         });
 
-    } catch (error) {
-        console.error('Error sending notification:', error);
-        res.status(500).json({ success: false, message: 'Server error while sending notification.' });
-    }
-};
+//     } catch (error) {
+//         console.error('Error sending notification:', error);
+//         res.status(500).json({ success: false, message: 'Server error while sending notification.' });
+//     }
+// };
 
 
-/**
- * @desc    Get all notifications with pagination
- * @route   GET /api/notifications
- * @access  Private (Admin)
- */
-export const getNotifications = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 10;
-        const skip = (page - 1) * limit;
+// /**
+//  * @desc    Get all notifications with pagination
+//  * @route   GET /api/notifications
+//  * @access  Private (Admin)
+//  */
+// export const getNotifications = async (req: Request, res: Response): Promise<void> => {
+//     try {
+//         const page = parseInt(req.query.page as string) || 1;
+//         const limit = parseInt(req.query.limit as string) || 10;
+//         const skip = (page - 1) * limit;
 
-        const notifications = await NotificationModel.find()
-            .sort({ createdAt: -1 }) // Show the latest notifications first
-            .skip(skip)
-            .limit(limit);
+//         const notifications = await NotificationModel.find()
+//             .sort({ createdAt: -1 }) // Show the latest notifications first
+//             .skip(skip)
+//             .limit(limit);
         
-        const total = await NotificationModel.countDocuments();
+//         const total = await NotificationModel.countDocuments();
 
-        res.status(200).json({
-            success: true,
-            count: notifications.length,
-            pagination: {
-                total,
-                page,
-                pages: Math.ceil(total / limit)
-            },
-            data: notifications
-        });
-    } catch (error) {
-        console.error('Error fetching notifications:', error);
-        res.status(500).json({ success: false, message: 'Server error while fetching notifications.' });
-    }
-};
+//         res.status(200).json({
+//             success: true,
+//             count: notifications.length,
+//             pagination: {
+//                 total,
+//                 page,
+//                 pages: Math.ceil(total / limit)
+//             },
+//             data: notifications
+//         });
+//     } catch (error) {
+//         console.error('Error fetching notifications:', error);
+//         res.status(500).json({ success: false, message: 'Server error while fetching notifications.' });
+//     }
+// };
 
-/**
- * @desc    Get a single notification by its ID
- * @route   GET /api/notifications/:id
- * @access  Private (Admin)
- */
-export const getNotificationById = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const notification = await NotificationModel.findById(req.params.id);
+// /**
+//  * @desc    Get a single notification by its ID
+//  * @route   GET /api/notifications/:id
+//  * @access  Private (Admin)
+//  */
+// export const getNotificationById = async (req: Request, res: Response): Promise<void> => {
+//     try {
+//         const notification = await NotificationModel.findById(req.params.id);
 
-        if (!notification) {
-            res.status(404).json({ success: false, message: 'Notification not found.' });
-            return;
-        }
+//         if (!notification) {
+//             res.status(404).json({ success: false, message: 'Notification not found.' });
+//             return;
+//         }
 
-        res.status(200).json({ success: true, data: notification });
-    } catch (error) {
-        console.error('Error fetching notification by ID:', error);
-        res.status(500).json({ success: false, message: 'Server error.' });
-    }
-};
+//         res.status(200).json({ success: true, data: notification });
+//     } catch (error) {
+//         console.error('Error fetching notification by ID:', error);
+//         res.status(500).json({ success: false, message: 'Server error.' });
+//     }
+// };
 
 
-/**
- * @desc    Cancel a scheduled notification
- * @route   DELETE /api/notifications/:id
- * @access  Private (Admin)
- */
-export const cancelScheduledNotification = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const notification = await NotificationModel.findById(req.params.id);
+// /**
+//  * @desc    Cancel a scheduled notification
+//  * @route   DELETE /api/notifications/:id
+//  * @access  Private (Admin)
+//  */
+// export const cancelScheduledNotification = async (req: Request, res: Response): Promise<void> => {
+//     try {
+//         const notification = await NotificationModel.findById(req.params.id);
 
-        if (!notification) {
-            res.status(404).json({ success: false, message: 'Notification not found.' });
-            return;
-        }
+//         if (!notification) {
+//             res.status(404).json({ success: false, message: 'Notification not found.' });
+//             return;
+//         }
 
-        if (notification.status !== 'Scheduled') {
-            res.status(400).json({ success: false, message: `Cannot cancel notification with status: ${notification.status}` });
-            return;
-        }
+//         if (notification.status !== 'Scheduled') {
+//             res.status(400).json({ success: false, message: `Cannot cancel notification with status: ${notification.status}` });
+//             return;
+//         }
 
-        await notification.deleteOne();
+//         await notification.deleteOne();
 
-        res.status(200).json({ success: true, message: 'Scheduled notification has been canceled.' });
-    } catch (error) {
-        console.error('Error canceling notification:', error);
-        res.status(500).json({ success: false, message: 'Server error while canceling notification.' });
-    }
-};
+//         res.status(200).json({ success: true, message: 'Scheduled notification has been canceled.' });
+//     } catch (error) {
+//         console.error('Error canceling notification:', error);
+//         res.status(500).json({ success: false, message: 'Server error while canceling notification.' });
+//     }
+// };
  
+
+export const fireBaseHealthCheckHandler = async(req: Request, res: Response, next: NextFunction) => {
+  const out: any = { ok: true };
+
+  // 1) Messaging dry-run (doesn't actually send)
+  try {
+    const id = await messaging.send(
+      { 
+        topic: 'healthcheck', 
+        notification: { title: 'hc', body: 'hc' } 
+      },
+      true // dryRun
+    );
+
+    out.messaging = { ok: true, messageId: id };
+    
+    res.status(200).json({
+      success: true,
+      out
+    });
+
+  } catch (error: any) {
+    out.ok = false;
+    out.messaging = { ok: false, error: error?.code || error?.message };
+    next(error)
+  }
+}

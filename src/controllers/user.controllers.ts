@@ -450,16 +450,15 @@ export const getUserProfileHandler = async(req: Request, res: Response, next: Ne
   }
 }
 
-export const updateUserProfileHandler = async(req: Request<{}, {}, TUpdateUserRequest>, res: Response, next: NextFunction) => {
-  console.log('req.body', req.body);
-  
+export const updateUserProfileHandler = async(
+  req: Request<{}, {}, TUpdateUserRequest>, 
+  res: Response, 
+  next: NextFunction
+) => { 
   try {
     const parsedBody = updateUserSchema.safeParse(req.body);
     const userId = req.userId;
     const file = req.profileImage
-    console.log('file', file);
-    console.log('parsedBody', parsedBody);
-      
 
     if(!parsedBody.success) {
       const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
@@ -480,9 +479,19 @@ export const updateUserProfileHandler = async(req: Request<{}, {}, TUpdateUserRe
     // Update user profile
     user.name = parsedBody.data.name || user.name;
     user.occupation = parsedBody.data.occupation || user.occupation;
-    user.dob = parsedBody.data.dob || user.dob;;
+    user.dob = parsedBody.data.dob || user.dob;
+    // Save new passowrd if provided
     if(parsedBody.data.password) {
       user.password = parsedBody.data.password;
+    }
+    // Save FCM token if provided
+    if (parsedBody.data.fcmToken) {
+      user.fcmToken = {
+        token: parsedBody.data.fcmToken,
+        platform: parsedBody.data.platform || null,
+        deviceId: parsedBody.data.deviceId || null,
+        updatedAt: new Date(),
+      };
     }
 
     await user.save();
