@@ -26,7 +26,8 @@ const userSchema = new mongoose.Schema<TUserDocument>({
   },
   dob: {
     type: String,
-    trim: true
+    trim: true,
+    default: null
   },
   profile_photo: {
     type: String,
