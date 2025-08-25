@@ -442,7 +442,12 @@ export const getUserProfileHandler = async(req: Request, res: Response, next: Ne
 
     res.status(200).json({
       success: true,
-      data: user
+      data: {
+        ...user.toObject(),
+        dob: user.dob 
+          ? new Date(user.dob).toISOString().split("T")[0] 
+          : null
+      }
     });
   } catch (error) {
     console.error('getUserProfileHandler error', error);

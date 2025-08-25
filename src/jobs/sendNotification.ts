@@ -12,7 +12,7 @@ const chunk = <T,>(arr: T[], size = 500) => {
 
 const defineSendNotificationJob =  (agenda: any) => {
 
-  agenda.define('send-notification', async (job: Job) => {
+  agenda.define('send-notification', async (job: Job<any>) => {
     
     const { notificationId } = job.attrs.data as { notificationId: string };
     const notif = await NotificationsModel.findById(notificationId);
@@ -60,7 +60,7 @@ const defineSendNotificationJob =  (agenda: any) => {
       failure += res.failureCount;
 
       // Clean up invalid tokens
-      res.responses.forEach((r, idx) => {
+      res.responses.forEach((r, idx: any) => {
         if (!r.success && r.error) {
           const code = r.error.code || 'unknown';
           if (errorsSample.length < 10) errorsSample.push({ code, msg: r.error.message || '' });

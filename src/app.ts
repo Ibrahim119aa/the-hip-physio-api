@@ -19,10 +19,10 @@ import defineSendNotificationJob from './jobs/sendNotification';
 
 const app = express();
 
-// (async () => {
-//   defineSendNotificationJob(agenda);
-//   await agenda.start();
-// })();
+(async () => {
+  defineSendNotificationJob(agenda);
+  await agenda.start();
+})();
 
 app.use(morgan('dev'))
 const allowedOrigins = [

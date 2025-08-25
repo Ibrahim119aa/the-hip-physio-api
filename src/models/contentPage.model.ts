@@ -1,27 +1,24 @@
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose, { Schema, Document } from "mongoose";
 
-const contentPageSchema = new Schema({
-  title: {
-    type: String,
-    required: true,
-    unique: true // e.g., "Privacy Policy"
+export interface IContentPage extends Document {
+  title: string;
+  slug: string;          // e.g., 'privacy-policy', 'terms-and-conditions', 'help-faqs'
+  contentHtml: string;   // sanitized HTML
+  version: number;
+  published: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const ContentPageSchema = new Schema<IContentPage>(
+  {
+    title: { type: String, required: true, trim: true },
+    slug:  { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
+    contentHtml: { type: String, default: "" },
+    version: { type: Number, default: 1 },
+    published: { type: Boolean, default: true },
   },
-  // A unique, URL-friendly identifier for the page
-  slug: {
-    type: String,
-    required: true,
-    unique: true, // e.g., "privacy-policy"
-    lowercase: true,
-    trim: true
-  },
-  // The content itself, can store HTML from a rich text editor
-  content: {
-    type: String,
-    required: true
-  }
-}, { timestamps: true });
+  { timestamps: true }
+);
 
-const ContentPageModel = mongoose.models.ContentPage || mongoose.model('ContentPage', contentPageSchema);
-
-export default ContentPageModel;
+export const ContentPage = mongoose.models.ContentPage || mongoose.model<IContentPage>("ContentPage", ContentPageSchema);
