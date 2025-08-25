@@ -11,10 +11,7 @@ const JWT_SECRET = config.jwtSecret!;
 
 // Generate JWT token
 export const generateToken = (payload: TokenPayload): string => {
-  // Token expires in 24 hours
-  const token = jwt.sign(payload, JWT_SECRET, {
-    expiresIn: '24h'
-  });
+  const token = jwt.sign(payload, JWT_SECRET);
   return token;
 };
 

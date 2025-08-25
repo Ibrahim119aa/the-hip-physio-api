@@ -42,12 +42,10 @@ export const userSchema = z.object({
 
   notifications: z.array(z.string()).optional(),      // ObjectId strings
 
-  fcmToken: z.string()
-    .nullable()
-    .optional()
-    .transform((value) =>
-      value == null ? value : domPurify.sanitize(value.trim())
-    ),
+  // Push notifications
+  fcmToken: z.string().optional(),
+  platform: z.enum(['ios','android','web']).optional(),
+  deviceId: z.string().optional(),
 
   status: z.enum(['active', 'inactive']).optional(),
 

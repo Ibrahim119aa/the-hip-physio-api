@@ -14,8 +14,15 @@ import sessionRoutes from './routes/session.routes';
 import userProgressRoutes from './routes/userProgess.routes';
 import educationalVideosRoutes from './routes/educationalVideos.routes';
 import notificationRoutes from './routes/notification.routes';
+import { agenda } from './jobs/agenda';
+import defineSendNotificationJob from './jobs/sendNotification';
 
 const app = express();
+
+(async () => {
+  defineSendNotificationJob(agenda);
+  await agenda.start();
+})();
 
 app.use(morgan('dev'))
 const allowedOrigins = [

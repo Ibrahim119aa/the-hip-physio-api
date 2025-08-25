@@ -501,6 +501,9 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
           price: 1,
           planType: 1,
           phase: 1,
+          weekStart: 1,
+          weekEnd: 1,
+          openEnded: { $ifNull: ["$openEnded", false] },
           planDurationInWeeks: 1, 
           category: 1, 
           schedule: { $ifNull: ["$schedule", []] } 
@@ -574,6 +577,34 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
           price: 1,
           planType: 1,
           phase: 1,
+          weekStart: 1,
+          weekEnd: 1,
+          openEnded: { $ifNull: ["$openEnded", false] },
+          planDurationInWeeks: { $ifNull: ["$planDurationInWeeks", null] },
+          // compute week badge
+          // weekBadge: {
+          //   $cond: [
+          //     { $ne: ["$weekStart", null] }, // range mode if weekStart is set (0 counts as set)
+          //     {
+          //       $concat: [
+          //         "Week ",
+          //         { $toString: "$weekStart" },
+          //         "-",
+          //         {
+          //           $toString: {
+          //             $ifNull: [
+          //               "$weekEnd",
+          //               { $add: ["$weekStart", "$planDurationInWeeks"] } // fallback
+          //             ]
+          //           }
+          //         },
+          //         { $cond: [ { $ifNull: ["$openEnded", false] }, "+", "" ] }
+          //       ]
+          //     },
+          //     { $concat: [ { $toString: "$planDurationInWeeks" }, "-Weeks" ] } // duration-only
+          //   ]
+          // },
+          
           totalWeeks: 1,
           totalMinutes: 1,
           totalExercises: 1,

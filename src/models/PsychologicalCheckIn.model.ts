@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { TPsychologicalCheckInDocument } from "../types/test";
 
-const psychologicalCheckInSchema = new mongoose.Schema<TPsychologicalCheckInDocument>({
+const WeeklyPsychologicalCheckInSchema = new mongoose.Schema<TPsychologicalCheckInDocument>({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -34,14 +34,14 @@ const psychologicalCheckInSchema = new mongoose.Schema<TPsychologicalCheckInDocu
   // Timestamp of when the check-in was submitted
   submittedAt: {
     type: Date,
-    default: Date.now
+    default: null
   }
 }, { timestamps: true });
 
 // Index for fast lookups of user's check-in history
-psychologicalCheckInSchema.index({ userId: 1, rehabPlanId: 1, week: 1 }, { unique: true });
+WeeklyPsychologicalCheckInSchema.index({ userId: 1, rehabPlanId: 1, week: 1 }, { unique: true });
 
-const PsychologicalCheckInModel = mongoose.models.PsychologicalCheckIn ||
-  mongoose.model<TPsychologicalCheckInDocument>('PsychologicalCheckIn', psychologicalCheckInSchema);
+const WeeklyPsychologicalCheckInModel = mongoose.models.PsychologicalCheckIn ||
+  mongoose.model<TPsychologicalCheckInDocument>('PsychologicalCheckIn', WeeklyPsychologicalCheckInSchema);
 
-export default PsychologicalCheckInModel;
+export default WeeklyPsychologicalCheckInModel;
