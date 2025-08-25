@@ -10,67 +10,74 @@ const chunk = <T,>(arr: T[], size = 500) => {
   return out;
 };
 
-const defineSendNotificationJob =  (agenda: any) => {
-
+const defineSendNotificationJob = (agenda: any) => {
   agenda.define('send-notification', async (job: Job<any>) => {
-    
     const { notificationId } = job.attrs.data as { notificationId: string };
     const notif = await NotificationsModel.findById(notificationId);
 
     if (!notif || notif.status === 'canceled') return;
 
-    // Fetch recipients
-    let users = [];
+    // Fetch recipients (with single fcmToken string)
+    let users: Array<{ fcmToken?: string | null }> = [];
 
     if (notif.target === 'all') {
-      users = await UserModel.find({ 'fcmTokens.0': { $exists: true } }, { fcmTokens: 1 }).lean();
+      users = await UserModel.find(
+        { fcmToken: { $ne: null } },
+        { fcmToken: 1 }
+      ).lean<any>();
     } else {
       users = await UserModel.find(
-        { _id: { $in: notif.userIds }, 'fcmTokens.0': { $exists: true } },
-        { fcmTokens: 1 }
-      ).lean();
+        { _id: { $in: notif.userIds }, fcmToken: { $ne: null } },
+        { fcmToken: 1 }
+      ).lean<any>();
     }
 
     // Flatten and dedupe tokens
     const tokenSet = new Set<string>();
-
     for (const u of users) {
-      for (const t of (u.fcmTokens || [])) tokenSet.add(t.token);
+      if (u.fcmToken) tokenSet.add(u.fcmToken);
     }
-    
     const tokens = [...tokenSet];
 
-    let success = 0, failure = 0;
-    const errorsSample: Array<{code: string, msg: string}> = [];
+    let success = 0,
+      failure = 0;
+    const errorsSample: Array<{ code: string; msg: string }> = [];
 
     const messageBase = {
       notification: { title: notif.title, body: notif.body },
-      data: (notif.data || {}) as Record<string,string>,
+      data: (notif.data || {}) as Record<string, string>,
       android: { priority: 'high' as const },
-      apns: { 
-        payload: { 
-          aps: { sound: 'default' } 
-        } 
+      apns: {
+        payload: {
+          aps: { sound: 'default' },
+        },
       },
     };
 
     for (const batch of chunk(tokens, 500)) {
-      const res = await messaging.sendEachForMulticast({ ...messageBase, tokens: batch });
+      const res = await messaging.sendEachForMulticast({
+        ...messageBase,
+        tokens: batch,
+      });
       success += res.successCount;
       failure += res.failureCount;
 
       // Clean up invalid tokens
-      res.responses.forEach((r, idx: any) => {
+      res.responses.forEach((r, idx) => {
         if (!r.success && r.error) {
           const code = r.error.code || 'unknown';
-          if (errorsSample.length < 10) errorsSample.push({ code, msg: r.error.message || '' });
+          if (errorsSample.length < 10)
+            errorsSample.push({ code, msg: r.error.message || '' });
 
-          if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
+          if (
+            code === 'messaging/registration-token-not-registered' ||
+            code === 'messaging/invalid-registration-token'
+          ) {
             const bad = batch[idx];
-            // pull from all users where present
+            // Unset single token for any users with this token
             UserModel.updateMany(
-              { 'fcmTokens.token': bad }, 
-              { $pull: { fcmTokens: { token: bad } } }
+              { fcmToken: bad },
+              { $unset: { fcmToken: '' } }
             ).exec();
           }
         }
@@ -83,7 +90,7 @@ const defineSendNotificationJob =  (agenda: any) => {
       counts: { success, failure },
       errorsSample,
     });
-    
+
     await notif.save();
   });
 };
