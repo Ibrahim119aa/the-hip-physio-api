@@ -477,7 +477,11 @@ export const updateUserProfileHandler = async(
     if (!user) throw new ErrorHandler(404, 'User not found');
 
     if(file) {
+      console.log('run inside file block');
+      
       const uploadImage = uploadProfileImageToCloudinary(file);
+      console.log('uploadImage', uploadImage);
+      
       user.profile_photo = await uploadImage;
     }
 
@@ -491,12 +495,7 @@ export const updateUserProfileHandler = async(
     }
     // Save FCM token if provided
     if (parsedBody.data.fcmToken) {
-      user.fcmToken = {
-        token: parsedBody.data.fcmToken,
-        platform: parsedBody.data.platform || null,
-        deviceId: parsedBody.data.deviceId || null,
-        updatedAt: new Date(),
-      };
+      user.fcmToken = parsedBody.data.fcmToken
     }
 
     await user.save();

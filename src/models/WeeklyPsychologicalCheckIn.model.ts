@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { TPsychologicalCheckInDocument } from "../types/test";
+import { date } from "zod";
 
 const WeeklyPsychologicalCheckInSchema = new mongoose.Schema<TPsychologicalCheckInDocument>({
   userId: {
@@ -26,16 +27,11 @@ const WeeklyPsychologicalCheckInSchema = new mongoose.Schema<TPsychologicalCheck
     type: String,
     trim: true
   },
-  // Optional: Reference to exercises if you want to correlate
-  exercisesCompleted: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Exercise'
-  }],
-  // Timestamp of when the check-in was submitted
   submittedAt: {
     type: Date,
-    default: null
+    default: Date.now
   }
+
 }, { timestamps: true });
 
 // Index for fast lookups of user's check-in history

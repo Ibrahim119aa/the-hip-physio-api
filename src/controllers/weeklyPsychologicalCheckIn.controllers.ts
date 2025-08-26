@@ -1,47 +1,43 @@
 import { NextFunction, Request, Response } from "express";
-import WeeklyPsychologicalCheckInModel from "../models/PsychologicalCheckIn.model";
+import WeeklyPsychologicalCheckInModel from "../models/WeeklyPsychologicalCheckIn.model";
+import ErrorHandler from "../utils/errorHandlerClass";
 
-export const generateWeeklyPsychologicalCheckIn = async (req: Request, res: Response, next: NextFunction) => {
+export const createWeeklyPsychologicalCheckIn = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
-      userId,
       rehabPlanId,
       week,
       resilienceScore,
       comments,
-      exercisesCompleted
     } = req.body;
+    const userId = req.userId;
 
     if (!userId || !rehabPlanId || !week || !resilienceScore) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      throw new ErrorHandler(400, 'Missing required fields' )
     }
 
-    // Prevent duplicate check-ins for the same user, rehab plan, and week
-    const existingCheckIn = await WeeklyPsychologicalCheckInModel.findOne({
-      userId,
-      rehabPlanId,
-      week
-    });
 
-    if (existingCheckIn) {
-      return res.status(409).json({ message: 'Check-in for this week already exists' });
-    }
-
+  // 3) Create; rely on unique index to prevent duplicates
     const checkIn = await WeeklyPsychologicalCheckInModel.create({
       userId,
       rehabPlanId,
       week,
       resilienceScore,
-      comments,
-      exercisesCompleted
+      comments: typeof comments === "string" ? comments.trim() : undefined,
+      submittedAt: new Date()
     });
 
-    return res.status(201).json({
+    res.status(201).json({
       message: 'Weekly psychological check-in submitted successfully',
       data: checkIn
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error in generateWeeklyPsychologicalCheckIn:', error);
+    
+    if(error?.code === 11000){
+      return next(new ErrorHandler(409, 'Check-in for this week already exists'))
+    }
     next(error);
   }
 };
