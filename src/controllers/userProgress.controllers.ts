@@ -3,10 +3,10 @@ import ErrorHandler from "../utils/errorHandlerClass";
 import UserProgressModel from "../models/userProgress.model";
 import RehabPlanModel from "../models/rehabPlan.model";
 import mongoose from "mongoose";
-import { DateTime } from "luxon";
 import { buildCompletionRecord } from "../utils/time";
+import { DateTime } from "luxon";
 
-// // @route  POST /api/user-progress/exercise/completed
+// @route  POST /api/user-progress/exercise/completed
 // export const markExerciseCompleteHandler = async (req: Request, res: Response, next: NextFunction) => {
 //   const session = await mongoose.startSession();
 //   try {
@@ -127,7 +127,6 @@ import { buildCompletionRecord } from "../utils/time";
 //   }
 // };
 
-// @route  POST /api/user-progress/exercise/completed
 export const markExerciseCompleteHandler = async (req: Request, res: Response, next: NextFunction) => {
   const session = await mongoose.startSession();
   try {
@@ -353,83 +352,6 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
 //   }
 // };
 
-// export const getUserProgressHandler = async(req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     // const { userId, rehabPlanId } = req.params;
-//     const { rehabPlanId } = req.params;
-//     const userId = req.userId
-
-//     if (!userId || !rehabPlanId) {
-//       throw new ErrorHandler(400, 'required data is missing.');
-//     }
-    
-//     const progress = await UserProgressModel.findOne({ userId, rehabPlanId }).populate({
-//       path: "rehabPlanId",
-//       model: "RehabPlan",
-//       select: "name"
-//     });
-      
-//     if(!progress) {
-//       throw new ErrorHandler(404, 'User progress not found.');
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       message: 'User progress fetched successfully.',
-//       data: progress
-//     });
-//   } catch (error) {
-//     console.error('getUserProgressHandler error', error);
-    
-//     next(error);
-//   }
-// }
-
-// export const getUserStreakHanlder = async(req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { userId, rehabPlanId } = req.params;
-
-//     if (!userId || !rehabPlanId) {
-//       throw new ErrorHandler(400, 'required data is missing.');
-//     }
-
-//     const progress = await UserProgressModel.findOne({ userId, rehabPlanId });
-
-//     if(!progress) {
-//       throw new ErrorHandler(404, 'User progress not found.');
-//     }
-
-//     const { completedSessions } = progress;
-//     let currentStreak = 0;
-
-//     if (completedSessions.length > 0) {
-//       // Sort sessions by date in descending order
-//       const sortedSessions = completedSessions.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-//       // Check for streak
-//       for (let i = 0; i < sortedSessions.length; i++) {
-//         if (i === 0 || new Date(sortedSessions[i].date).getDate() === new Date(sortedSessions[i - 1].date).getDate() - 1) {
-//           currentStreak++;
-//         } else {
-//           break;
-//         }
-//       }
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       message: 'User streak fetched successfully.',
-//       data: { currentStreak }
-//     });
-//   } catch (error) {
-//     console.error('getUserStreakHanlder error', error);
-
-//     next(error);
-//   }
-// }
-
-// @route  POST /api/user-progress/exercise/completed
-
 export const markSessionCompleteAndStreakCount = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { planId, sessionId, difficultyRating, timezone } = req.body;
@@ -534,6 +456,80 @@ export const markSessionCompleteAndStreakCount = async (req: Request, res: Respo
   }
 };
 
+export const getUserProgressHandler = async(req: Request, res: Response, next: NextFunction) => {
+  try {
+    // const { userId, rehabPlanId } = req.params;
+    const { rehabPlanId } = req.params;
+    const userId = req.userId
+
+    if (!userId || !rehabPlanId) {
+      throw new ErrorHandler(400, 'required data is missing.');
+    }
+    
+    const progress = await UserProgressModel.findOne({ userId, rehabPlanId }).populate({
+      path: "rehabPlanId",
+      model: "RehabPlan",
+      select: "name"
+    });
+      
+    if(!progress) {
+      throw new ErrorHandler(404, 'User progress not found.');
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'User progress fetched successfully.',
+      data: progress
+    });
+  } catch (error) {
+    console.error('getUserProgressHandler error', error);
+    
+    next(error);
+  }
+}
+
+export const getUserStreakHanlder = async(req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId, rehabPlanId } = req.params;
+
+    if (!userId || !rehabPlanId) {
+      throw new ErrorHandler(400, 'required data is missing.');
+    }
+
+    const progress = await UserProgressModel.findOne({ userId, rehabPlanId });
+
+    if(!progress) {
+      throw new ErrorHandler(404, 'User progress not found.');
+    }
+
+    const { completedSessions } = progress;
+    let currentStreak = 0;
+
+    if (completedSessions.length > 0) {
+      // Sort sessions by date in descending order
+      const sortedSessions = completedSessions.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Check for streak
+      for (let i = 0; i < sortedSessions.length; i++) {
+        if (i === 0 || new Date(sortedSessions[i].date).getDate() === new Date(sortedSessions[i - 1].date).getDate() - 1) {
+          currentStreak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'User streak fetched successfully.',
+      data: { currentStreak }
+    });
+  } catch (error) {
+    console.error('getUserStreakHanlder error', error);
+
+    next(error);
+  }
+}
 
 // export const getUserRehabProgress = async(req: Request, res: Response, next: NextFunction) => {
 //   try {
