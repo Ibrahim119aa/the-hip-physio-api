@@ -14,8 +14,8 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
     const { planId, exerciseId, sessionId, irritabilityScore } = req.body;
     const userId = req.userId;
 
-    if (!planId || !exerciseId || !userId || !sessionId || !irritabilityScore) {
-      throw new ErrorHandler(409, 'Required data is missing.');
+    if (!planId || !exerciseId || !userId || !sessionId || irritabilityScore === null) {
+      throw new ErrorHandler(400, 'Required data is missing.');
     }
 
     // Check if exercise is already completed
@@ -30,12 +30,10 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
       }
     }).session(session);
 
-    if (existingExercise) {
-      throw new ErrorHandler(401, "Exercise was already marked as complete")
-    }
+    if (existingExercise) throw new ErrorHandler(409, "Exercise was already marked as complete")
 
     // Atomically find and update the document.
-    const progress = await UserProgressModel.findOneAndUpdate(
+    let progress = await UserProgressModel.findOneAndUpdate(
       {
         userId,
         rehabPlanId: planId,
@@ -56,7 +54,22 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
       }
     );
     
-    if (!progress) throw new ErrorHandler(404, "User progress not found for this plan.");
+    if (!progress){
+      // create progress
+      const newProgress = new UserProgressModel({
+        userId,
+        rehabPlanId: planId,
+        completedExercises: [{
+          sessionId,
+          exerciseId,
+          irritabilityScore,
+          completedAt: new Date(),
+        }],
+      });
+      
+      await newProgress.save({ session });
+      progress = newProgress;
+    }
     
     // --- PERCENTAGE CALCULATION ---
 
@@ -70,9 +83,7 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
       .session(session)
       .lean<any>();
 
-    if (!plan){
-      throw new ErrorHandler(404, "Rehab plan associated with this progress not found.");
-    } 
+    if (!plan) throw new ErrorHandler(404, "Rehab plan associated with this progress not found.");
 
     // 2) Calculate total exercises in the plan
     const totalExercises = (plan.schedule || []).reduce((acc: number, item: any) => {
@@ -91,7 +102,6 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
     // 4) Update progress percentage
     progress.progressPercent = percent;
     await progress.save({ session });
-
     
     await session.commitTransaction();
     session.endSession();
@@ -983,20 +993,22 @@ export const getProgressPercent = async (req: Request, res: Response) => {
 
 
 export const getUserStreakHanlderTesting = async(req: Request, res: Response, next: NextFunction) => {
-  const { userId, planId } = req.params;
+  const { planId } = req.params;
+  const userId = req.userId;
+  
+  console.log('userId', userId);
+  console.log('planId', planId)
+  
   try {
-    const today = Date.now();
     const progress = await UserProgressModel.findOne({
       userId,
       rehabPlanId: planId,
     }).lean<any>();
 
-    const completedSessionDate = progress.completedSessions
-
     res.status(200).json({
       success: true,
-      message: "User streak fetched successfully.",
-      data: completedSessionDate
+      message: "User streak and progress fetched successfully.",
+      data: progress
     })
 
   } catch (error) {

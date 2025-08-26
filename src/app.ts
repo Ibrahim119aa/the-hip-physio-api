@@ -1,10 +1,10 @@
+import { agenda } from './jobs/agenda';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import notFoundHandler from './middlewares/notFoundHandler';
 import globalErrorHandler from './middlewares/globalErrorHandler.middleware';
-import config from './config/config';
 import morgan from 'morgan';
 import userRoutes from './routes/user.routes';
 import exerciseRoutes from './routes/exercise.routes';
@@ -14,8 +14,10 @@ import sessionRoutes from './routes/session.routes';
 import userProgressRoutes from './routes/userProgess.routes';
 import educationalVideosRoutes from './routes/educationalVideos.routes';
 import notificationRoutes from './routes/notification.routes';
-import { agenda } from './jobs/agenda';
+import userNoteRoutes from './routes/userNote.routes';
+import weeklyResilienceCheckinRoutes from './routes/weeklyPsychologicalCheckIn.routes'
 import defineSendNotificationJob from './jobs/sendNotification';
+
 
 const app = express();
 
@@ -60,6 +62,8 @@ app.use('/api/session', sessionRoutes);
 app.use('/api/user-progress', userProgressRoutes);
 app.use('/api/educational-videos', educationalVideosRoutes);
 app.use('/api/notification', notificationRoutes);
+app.use('/api/user-notes', userNoteRoutes)
+app.use('/api/weekly-resilience-checkin', weeklyResilienceCheckinRoutes)
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

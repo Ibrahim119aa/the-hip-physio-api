@@ -56,10 +56,8 @@ const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
     default: 0,
     min: 0
   },
-  lastUpdated: {
-    type: Date,
-    default: Date.now
-  }
+}, {
+  timestamps: true
 });
 
 // Ensure a user has only one progress document per plan
@@ -69,65 +67,3 @@ userProgressSchema.index({ userId: 1, rehabPlanId: 1 }, { unique: true });
 const UserProgressModel = mongoose.models.UserProgress || mongoose.model<TUserProgressDocument>('UserProgress', userProgressSchema);
 
 export default UserProgressModel;
-
-
-// const ProgressTrackingSchema = new mongoose.Schema({
-//   userId: {
-//     type: mongoose.Schema.Types.ObjectId,
-//     ref: 'User',
-//     required: true
-//   },
-//   rehabPlanId: {
-//     type: mongoose.Schema.Types.ObjectId,
-//     ref: 'RehabPlan',
-//     required: true
-//   },
-
-//   // More granular tracking per session per day
-//   completedSessions: [{
-//     sessionId: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: 'Session',
-//       required: true
-//     },
-//     week: {
-//       type: Number,
-//       required: true
-//     },
-//     day: {
-//       type: Number,
-//       required: true
-//     },
-//     completedAt: {
-//       type: Date,
-//       default: Date.now
-//     },
-//     completed: {
-//       type: Boolean,
-//       default: true
-//     }
-//   }],
-
-//   // Overall progress and metrics
-//   progressPercent: {
-//     type: Number,
-//     default: 0,
-//     min: 0,
-//     max: 100
-//   },
-//   resiliencyScore: {
-//     type: Number,
-//     default: 0
-//   },
-//   streakCount: {
-//     type: Number,
-//     default: 0,
-//     min: 0
-//   },
-
-//   lastUpdated: {
-//     type: Date,
-//     default: Date.now
-//   }
-// }, { timestamps: true });
-
