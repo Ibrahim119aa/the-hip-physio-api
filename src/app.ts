@@ -27,13 +27,12 @@ const app = express();
 })();
 
 app.use(morgan('dev'))
-const allowedOrigins = [
-  'http://localhost:4000',
-]
+
+const allowedOrigins = ['https://www.thehipphysio.com', 'http://localhost:3000', 'http://localhost:3001']
 
 app.use(helmet());
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: allowedOrigins,
   credentials: true
 }));
 

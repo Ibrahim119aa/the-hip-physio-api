@@ -277,6 +277,7 @@ export const getRehabPlanByIdHandler = async (
     });
 
     const weekMap = new Map<number, any[]>();
+
     for (const item of schedule) {
       const arr = weekMap.get(item.week) || [];
       arr.push(item);
@@ -285,6 +286,7 @@ export const getRehabPlanByIdHandler = async (
 
     // 4) Build organized structure (weeks -> days -> sessions) with strict unlocking rules
     const weeksOut: any[] = [];
+    
     const totals = {
       totalExercises: 0,
       completedExercises: 0,
