@@ -16,6 +16,7 @@ import educationalVideosRoutes from './routes/educationalVideos.routes';
 import notificationRoutes from './routes/notification.routes';
 import userNoteRoutes from './routes/userNote.routes';
 import weeklyResilienceCheckinRoutes from './routes/weeklyPsychologicalCheckIn.routes'
+import editableContentRoutes from './routes/editableConten.routes';
 import defineSendNotificationJob from './jobs/sendNotification';
 
 
@@ -63,6 +64,7 @@ app.use('/api/educational-videos', educationalVideosRoutes);
 app.use('/api/notification', notificationRoutes);
 app.use('/api/user-notes', userNoteRoutes)
 app.use('/api/weekly-resilience-checkin', weeklyResilienceCheckinRoutes)
+app.use('/api/editable-content', editableContentRoutes)
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

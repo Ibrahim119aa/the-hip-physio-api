@@ -16,12 +16,12 @@ const userNoteSchema = new mongoose.Schema({
     ref: 'Session',
     required: true
   },
-  userProgress: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'UserProgress',
-    required: true
-  },
-  content: {
+  // userProgress: {
+  //   type: mongoose.Schema.Types.ObjectId,
+  //   ref: 'UserProgress',
+  //   required: true
+  // },
+  comments: {
     type: String,
     required: true,
     trim: true

@@ -3,7 +3,7 @@ import ErrorHandler from "../utils/errorHandlerClass";
 import UserProgressModel from "../models/userProgress.model";
 import RehabPlanModel from "../models/rehabPlan.model";
 import mongoose from "mongoose";
-import { buildCompletionRecord } from "../utils/time";
+import { buildCompletionRecord } from "../utils/timezone";
 import { DateTime } from "luxon";
 
 // @route  POST /api/user-progress/exercise/completed
@@ -155,7 +155,7 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
       throw new ErrorHandler(409, "Exercise was already marked as complete");
     }
 
-    // Generate UTC + local + dayKey info
+    // Generate UTC + local + dayKey info using timezone
     const completedAtUTC = new Date();
     const { completedAtLocal, dayKey } = buildCompletionRecord({ completedAtUTC, timezone });
 
@@ -361,6 +361,7 @@ export const markSessionCompleteAndStreakCount = async (req: Request, res: Respo
       throw new ErrorHandler(400, 'Required data is missing.');
     }
 
+    // Generate UTC + local + dayKey info using timezone
     const completedAtUTC = new Date();
     const { completedAtLocal, dayKey } = buildCompletionRecord({ completedAtUTC, timezone });
 
@@ -405,14 +406,18 @@ export const markSessionCompleteAndStreakCount = async (req: Request, res: Respo
       });
     }
 
-    // --- STREAK LOGIC ---
+    // --- STREAK LOGIC WITH TIMEZONE AWARENESS ---
 
-    // Sort by latest dayKey
+    // Sort by latest dayKey using timezone-aware comparison
     const lastCompletedSession = currentProgress.completedSessions
       .sort((a: any, b: any) => (b.dayKey > a.dayKey ? 1 : -1))[0];
 
-    const lastDay = DateTime.fromFormat(lastCompletedSession.dayKey, 'yyyy-MM-dd');
-    const currentDay = DateTime.fromFormat(dayKey, 'yyyy-MM-dd');
+      // const lastDay = DateTime.fromFormat(lastCompletedSession.dayKey, 'yyyy-MM-dd');
+      // const currentDay = DateTime.fromFormat(dayKey, 'yyyy-MM-dd');
+
+    // Use DateTime to properly calculate day differences in the user's timezone
+    const lastDay = DateTime.fromFormat(lastCompletedSession.dayKey, 'yyyy-MM-dd', { zone: timezone });
+    const currentDay = DateTime.fromFormat(dayKey, 'yyyy-MM-dd', { zone: timezone }); 
 
     const diffInDays = currentDay.diff(lastDay, 'days').days;
 

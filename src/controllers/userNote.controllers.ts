@@ -4,12 +4,12 @@ import ErrorHandler from "../utils/errorHandlerClass";
 
 
 // CREATE
-export const createUserNote = async (req: Request, res: Response, next: NextFunction) => {
+export const createUserNoteHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId;
-    const { planId, sessionId, content } = req.body;
+    const { planId, sessionId, comments } = req.body;
 
-    if (!userId || !planId || !sessionId || !content) {
+    if (!userId || !planId || !sessionId || !comments) {
       throw new ErrorHandler(400, "Missing required fields")
     }
 
@@ -17,7 +17,7 @@ export const createUserNote = async (req: Request, res: Response, next: NextFunc
       user: userId,
       rehabPlan: planId,
       session: sessionId,
-      content: content.trim(),
+      comments: comments.trim(),
     });
 
    res.status(201).json({ 
@@ -37,56 +37,72 @@ export const createUserNote = async (req: Request, res: Response, next: NextFunc
 };
 
 // LIST ALL FOR USER (optionally by plan or session)
-export const listUserNotes = async (req: Request, res: Response, next: NextFunction) => {
+export const listUserNotesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).userId;
+    const userId = req.userId;
     const { planId, sessionId } = req.query;
 
-    const query: any = { user: userId };
-    if (planId) query.rehabPlan = planId;
-    if (sessionId) query.session = sessionId;
+    const notes = await UserNoteModel.find({
+      userId,
+      rehabPlanId: planId,
+      sessionId: sessionId
+    }).sort({ createdAt: -1 }).populate('rehabPlan').populate('session').populate('userProgress');
 
-    const notes = await UserNoteModel.find(query).sort({ createdAt: -1 });
-    return res.status(200).json({ data: notes });
+    return res.status(200).json({
+      success: true,
+      data: notes
+    });
   } catch (err) {
     next(err);
   }
 };
 
 // GET ONE
-export const getUserNote = async (req: Request, res: Response, next: NextFunction) => {
+export const getUserNoteHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).userId;
+    const userId = req.userId;
     const { noteId } = req.params;
+    console.log(noteId);
+    
+    if(!noteId) throw new ErrorHandler(400, "Note ID is required");
 
-    const note = await UserNoteModel.findOne({ _id: noteId, user: userId });
+    const note = await UserNoteModel.findOne({_id: noteId})
+      // .populate('rehabPlan')
+      .populate('session')
+      // .populate('userProgress');
+    
     if (!note) return res.status(404).json({ message: "Note not found" });
 
-    return res.status(200).json({ data: note });
+    return res.status(200).json({ 
+      success: true,
+      data: note 
+    });
+
   } catch (err) {
+    console.error('Error in getUserNote:', err)
     next(err);
   }
 };
 
 // UPDATE
-export const updateUserNote = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = (req as any).userId;
-    const { noteId } = req.params;
-    const { content } = req.body;
+// export const updateUserNote = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const userId = (req as any).userId;
+//     const { noteId } = req.params;
+//     const { content } = req.body;
 
-    const note = await UserNoteModel.findOneAndUpdate(
-      { _id: noteId, user: userId },
-      { content: content?.trim() },
-      { new: true }
-    );
+//     const note = await UserNoteModel.findOneAndUpdate(
+//       { _id: noteId, user: userId },
+//       { content: content?.trim() },
+//       { new: true }
+//     );
 
-    if (!note) return res.status(404).json({ message: "Note not found" });
-    return res.status(200).json({ message: "Note updated", data: note });
-  } catch (err) {
-    next(err);
-  }
-};
+//     if (!note) return res.status(404).json({ message: "Note not found" });
+//     return res.status(200).json({ message: "Note updated", data: note });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 // DELETE
 export const deleteUserNote = async (req: Request, res: Response, next: NextFunction) => {

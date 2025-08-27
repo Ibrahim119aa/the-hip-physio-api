@@ -334,9 +334,11 @@ export const getRehabPlanByIdHandler = async (
             0
           );
     
-          const sCompleted =
-            (sTotal > 0 && sDoneCount === sTotal) ||
-            completedSessionIds.has(sessionId);
+          // const sCompleted =
+          //   (sTotal > 0 && sDoneCount === sTotal) ||
+          //   completedSessionIds.has(sessionId);
+
+          const sCompleted = completedSessionIds.has(sessionId);
 
           dayTotalExercises += sTotal;
           dayCompletedExercises += sDoneCount;
@@ -372,7 +374,8 @@ export const getRehabPlanByIdHandler = async (
         totals.totalExercises += dayTotalExercises;
         totals.completedExercises += dayCompletedExercises;
 
-        const dayCompleted = dayTotalExercises > 0 && dayCompletedExercises === dayTotalExercises;
+        // const dayCompleted = dayTotalExercises > 0 && dayCompletedExercises === dayTotalExercises;
+        const dayCompleted = sessionsOut.length > 0 && sessionsOut.every(s => s.completed);
 
         // Day unlocked: week must be unlocked; Day 1 always unlocked; Day N>1 only if previous day completed
         const dayUnlocked = weekUnlocked && (dayItem.day === 1 ? true : prevDayCompleted);

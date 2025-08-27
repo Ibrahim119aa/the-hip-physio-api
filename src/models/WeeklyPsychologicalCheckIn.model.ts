@@ -27,17 +27,12 @@ const WeeklyPsychologicalCheckInSchema = new mongoose.Schema<TPsychologicalCheck
     type: String,
     trim: true
   },
-  submittedAt: {
-    type: Date,
-    default: Date.now
-  }
-
 }, { timestamps: true });
 
 // Index for fast lookups of user's check-in history
 WeeklyPsychologicalCheckInSchema.index({ userId: 1, rehabPlanId: 1, week: 1 }, { unique: true });
 
 const WeeklyPsychologicalCheckInModel = mongoose.models.PsychologicalCheckIn ||
-  mongoose.model<TPsychologicalCheckInDocument>('PsychologicalCheckIn', WeeklyPsychologicalCheckInSchema);
+  mongoose.model<TPsychologicalCheckInDocument>('WeeklPsychologicalCheckIn', WeeklyPsychologicalCheckInSchema);
 
 export default WeeklyPsychologicalCheckInModel;
