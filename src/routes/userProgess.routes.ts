@@ -7,7 +7,7 @@ const router = Router();
 router.route("/exercise/completed").post(isUserAuthenticated, markExerciseCompleteHandler);
 router.route("/session/completed").post(isUserAuthenticated, markSessionCompleteAndStreakCount);
 // router.route("/streak/:userId/:rehabPlanId").get(getUserStreakHanlder);
-router.route("/streak/:planId").get(isUserAuthenticated, getUserStreakHanlderTesting);
+router.route("/streak-and-progress/:planId").get(isUserAuthenticated, getUserStreakHanlderTesting);
 router.route("/progress-percent/:planId").get(isUserAuthenticated, getProgressPercent);
 router.route("/logbook/:userId/:rehabPlanId").get(getUserLogbookHandler);
 router.route("/status/:planId/:userId").get(getPlanProgressStatus);
