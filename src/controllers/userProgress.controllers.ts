@@ -1174,27 +1174,99 @@ export const getProgressPercent = async (req: Request, res: Response) => {
 };
 
 
-export const getUserStreakHanlderTesting = async(req: Request, res: Response, next: NextFunction) => {
+// export const getUserStreakHanlderTesting = async(req: Request, res: Response, next: NextFunction) => {
+//   const { planId } = req.params;
+//   const userId = req.userId;
+  
+//   try {
+//     const progress = await UserProgressModel.findOne({
+//       userId,
+//       rehabPlanId: planId,
+//     }).lean<any>();
+
+//     res.status(200).json({
+//       success: true,
+//       message: "User streak and progress fetched successfully.",
+//       data: progress
+//     })
+
+//   } catch (error) {
+//     console.error('getUserStreak error', error);
+//     next(error);
+//   }
+// }
+
+export const getUserStreakHanlderTesting = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const { planId } = req.params;
   const userId = req.userId;
-  
-  console.log('userId', userId);
-  console.log('planId', planId)
-  
+
   try {
+    // 1) Get progress (for completed exercises)
     const progress = await UserProgressModel.findOne({
       userId,
       rehabPlanId: planId,
     }).lean<any>();
 
-    res.status(200).json({
-      success: true,
-      message: "User streak and progress fetched successfully.",
-      data: progress
-    })
+    // 2) Get the plan (with exercises populated)
+    const plan = await RehabPlanModel.findOne({ _id: planId })
+      .select("_id schedule")
+      .populate({
+        path: "schedule.sessions",
+        model: "Session",
+        select: "_id exercises",
+        populate: {
+          path: "exercises",
+          model: "Exercise",
+          select: "_id name",
+        },
+      })
+      .lean<any>();
+      console.log('plan', plan);
+      
+    if (!plan) throw new ErrorHandler(404, "Rehab plan not found");
 
+    // 3) Build completed set
+    const completedKeys = new Set<string>(
+      (progress?.completedExercises || []).map(
+        (e: any) => `${String(e.sessionId)}-${String(e.exerciseId)}`
+      )
+    );
+
+    // 4) Count totals
+    let totalExercises = 0;
+    let completedExercises = 0;
+
+    for (const item of plan.schedule || []) {
+      for (const s of item.sessions || []) {
+        const sessionId = String(s._id);
+        for (const ex of s.exercises || []) {
+          totalExercises += 1;
+          if (completedKeys.has(`${sessionId}-${String(ex._id)}`)) {
+            completedExercises += 1;
+          }
+        }
+      }
+    }
+
+    const uncompletedExercises = totalExercises - completedExercises;
+
+    // 5) Response
+    return res.status(200).json({
+      success: true,
+      message: "User progress with uncompleted count",
+      data: {
+        progress,
+        totalExercises,
+        completedExercises,
+        uncompletedExercises,
+      },
+    });
   } catch (error) {
-    console.error('getUserStreak error', error);
+    console.error("getUserStreak error", error);
     next(error);
   }
-}
+};
