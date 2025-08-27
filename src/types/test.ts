@@ -6,10 +6,6 @@ type TPsychologicalCheckIn = {
   week: number;
   resilienceScore: number;
   comments?: string;
-  exercisesCompleted?: mongoose.Schema.Types.ObjectId[];
-  submittedAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export type TPsychologicalCheckInDocument =  TPsychologicalCheckIn & Document;

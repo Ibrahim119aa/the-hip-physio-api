@@ -18,7 +18,7 @@ export function buildCompletionRecord({ completedAtUTC, timezone}: { completedAt
   const utc = DateTime.fromJSDate(completedAtUTC, { zone: 'utc' });
   const local = utc.setZone(timezone);
   
-  if (!local.isValid) throw new Error(`Invalid timezone provided: ${timezone}`);
+  if (!local.isValid) throw new Error(`Invalid timezone provided must be IANA, e.g. "Asia/Dubai": ${timezone}`);
 
   return {
     completedAtUTC,

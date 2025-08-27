@@ -225,11 +225,7 @@ export const adminLoginHandler = async (req: Request, res: Response, next: NextF
 export const userLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    console.log('email', email);
-    console.log('password', password);
-    
-    
-    
+
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
     }
@@ -253,6 +249,7 @@ export const userLoginHandler = async (req: Request, res: Response, next: NextFu
         id: user._id,
         name: user.name,
         email: user.email,
+        fcmToken: user.fcmToken,
         purchasedPlans: user.purchasedPlans,
         status: user.status
       }

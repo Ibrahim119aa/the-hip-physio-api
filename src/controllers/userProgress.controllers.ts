@@ -3,7 +3,7 @@ import ErrorHandler from "../utils/errorHandlerClass";
 import UserProgressModel from "../models/userProgress.model";
 import RehabPlanModel from "../models/rehabPlan.model";
 import mongoose from "mongoose";
-import { buildCompletionRecord } from "../utils/time";
+import { buildCompletionRecord } from "../utils/timezone";
 import { DateTime } from "luxon";
 
 // @route  POST /api/user-progress/exercise/completed
