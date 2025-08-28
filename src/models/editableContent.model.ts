@@ -1,23 +1,11 @@
 import mongoose, { Schema } from "mongoose";
 
 
-export interface IContentPage extends Document {
-  title: string;
-  slug: string;          // e.g., 'privacy-policy', 'terms-and-conditions', 'help-faqs'
-  contentHtml: string;   // sanitized HTML
-  version: number;
-  published: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  updatedBy: Schema.Types.ObjectId;
-}
 
-
-const EditableContentSchema = new Schema<IContentPage>(
+const EditableContentSchema = new Schema(
   {
     title: { 
       type: String, 
-      required: true, 
       trim: true 
     },
     slug:  { 
@@ -48,4 +36,4 @@ const EditableContentSchema = new Schema<IContentPage>(
   { timestamps: true }
 );
 
-export const EditableContentModel = mongoose.models.ContentPage || mongoose.model<IContentPage>("EditableContent", EditableContentSchema);
+export const EditableContentModel = mongoose.models.EditableContent || mongoose.model("EditableContent", EditableContentSchema);

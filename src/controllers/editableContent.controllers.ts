@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import ErrorHandler from "../utils/errorHandlerClass";
 import { EditableContentModel } from "../models/editableContent.model";
 
-const ALLOWED_SLUGS = new Set(["privacy-policy", "terms", "help-faqs"]);
+const ALLOWED_SLUGS = new Set(["privacy-policy", "terms-and-conditions", "help-faqs"]);
 
 export async function createContentHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -30,7 +30,7 @@ export async function createContentHandler(req: Request, res: Response, next: Ne
       slug,
       title,
       // html: sanitizedHtml,
-      html: html,
+      contentHtml: html,
       updatedBy: userId,
     });
   
@@ -49,24 +49,30 @@ export async function createContentHandler(req: Request, res: Response, next: Ne
 export const updateContentHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
     const { slug } = req.params;
-    const { title, html } = req.body;
+    const { title, contentHtml } = req.body;
     const userId = req.userId;
+    console.log('req.body', req.body)
+    if (!ALLOWED_SLUGS.has(slug)) throw new ErrorHandler(400, "Invalid slug");
 
-    if (!ALLOWED_SLUGS.has(slug)) {
-      return res.status(400).json({ error: "Invalid slug" });
-    }
+    if (typeof contentHtml !== "string" || contentHtml.trim() === "") throw new ErrorHandler(400, "contentHtml is required") 
 
     const doc = await EditableContentModel.findOneAndUpdate(
       { slug },
-      { title, html, updatedBy: userId },
+      { 
+        ...(title !== undefined ? { title } : {}),
+        contentHtml, 
+        updatedBy: userId 
+      },
       { new: true }
     );
 
-    if (!doc) {
-      return res.status(404).json({ error: "Content not found" });
-    }
+    if (!doc) throw new ErrorHandler(404, "Content not found");
 
-    return res.status(200).json(doc);
+    res.status(200).json({
+      success: true,
+      message: "Content updated successfully",
+      data: doc
+    });
 
   } catch (error) {
     console.error("Error updating content:", error);
@@ -122,7 +128,7 @@ export const getAllContentHandler = async(req: Request, res: Response, next: Nex
     const docs = await EditableContentModel.find({ slug: { $in: Array.from(ALLOWED_SLUGS) } })
       .sort({ slug: 1 })
       .lean();
-
+    
     res.status(200).json({
       success: true,
       message: "All content fetched successfully",

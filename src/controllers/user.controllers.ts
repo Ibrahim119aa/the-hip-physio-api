@@ -11,7 +11,7 @@ import ErrorHandler from "../utils/errorHandlerClass";
 import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
 import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers";
 import bcrypt from 'bcrypt';
-import { TUpdateUserRequest, updateUserSchema } from "../validationSchemas/user.schema";
+import { TUpdateUserRequest, TUserLoginRequest, updateUserSchema, userLoginSchema } from "../validationSchemas/user.schema";
 import { uploadProfileImageToCloudinary } from "../utils/cloudinaryUploads/uploadProfileImageToCloudinary";
 
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
@@ -180,13 +180,16 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
   }
 };
 
-export const adminLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const adminLoginHandler = async (req: Request<{}, {}, TUserLoginRequest>, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body;
-        
-    if (!email || !password) {
-      throw new ErrorHandler(400, 'Email and password are required');
+    const parsedBody = userLoginSchema.safeParse(req.body);
+
+    if(!parsedBody.success) {
+      const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
+      throw new ErrorHandler(400, `${errorMessages.join(', ')}`);
     }
+
+    const { email, password} = parsedBody.data
 
     const user = await UserModel.findOne({ email });
     if (!user) throw new ErrorHandler(404, 'Invalid credentials');
@@ -222,13 +225,16 @@ export const adminLoginHandler = async (req: Request, res: Response, next: NextF
   }
 }
 
-export const userLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const userLoginHandler = async (req: Request<{}, {}, TUserLoginRequest>, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body;
+    const parsedBody = userLoginSchema.safeParse(req.body);
 
-    if (!email || !password) {
-      throw new ErrorHandler(400, 'Email and password are required');
+    if(!parsedBody.success) {
+      const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
+      throw new ErrorHandler(400, `${errorMessages.join(', ')}`);
     }
+
+    const { email, password} = parsedBody.data
 
     const user = await UserModel.findOne({ email });
     if (!user) throw new ErrorHandler(404, 'Invalid credentials');
@@ -458,13 +464,19 @@ export const updateUserProfileHandler = async(
   next: NextFunction
 ) => { 
   try {
+    console.log('req.body', req.body);
+    
     const parsedBody = updateUserSchema.safeParse(req.body);
+    console.log('parsedBody', parsedBody);
+    
     const userId = req.userId;
     const file = req.profileImage
+    console.log('image', file);
+    
 
     if(!parsedBody.success) {
       const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
-      throw new ErrorHandler(400, `Invalid request data: ${errorMessages.join(', ')}`);
+      throw new ErrorHandler(400, `${errorMessages.join(', ')}`);
     }
     
     if (!userId) throw new ErrorHandler(400, 'User ID is required');
@@ -500,7 +512,6 @@ export const updateUserProfileHandler = async(
     res.status(200).json({
       success: true,
       message: 'User profile updated successfully',
-      // data: user
     });
   } catch (error) {
     console.error('updateUserProfileHandler error', error);
