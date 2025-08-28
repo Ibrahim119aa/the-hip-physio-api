@@ -283,9 +283,13 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
 
     // save new password
     user.password = generatedPassword;
-    await user.save();
+    await user.save(); 
     
-    await sendNewPasswordEmailSMTP(user.email, generatedPassword, user.name);
+    const sentEmail = await sendNewPasswordEmailSMTP(user.email, generatedPassword, user.name);
+
+    if (!sentEmail.ok) {
+      throw new ErrorHandler(500, 'Failed to send password reset email. Please try again later.');
+    }
 
     res.status(200).json({
       success: true,

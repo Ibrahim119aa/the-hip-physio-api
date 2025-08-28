@@ -1209,7 +1209,10 @@ export const getUserStreakHanlderTesting = async (
     const progress = await UserProgressModel.findOne({
       userId,
       rehabPlanId: planId,
-    }).lean<any>();
+    }).populate({
+      path: "completedExercises.exerciseId",
+      model: "Exercise",
+    });
 
     // 2) Get the plan (with exercises populated)
     const plan = await RehabPlanModel.findOne({ _id: planId })

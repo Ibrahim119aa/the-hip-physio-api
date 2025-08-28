@@ -12,8 +12,8 @@ import config from "../config/config.js";
 // });
 
 // testing purpose
-console.log(config.mailtrapSmtpUser);
-console.log(config.mailtrapSmtpPass);
+console.log('config.mailtrapSmtpUser', config.mailtrapSmtpUser);
+console.log('config.mailtrapSmtpPass', config.mailtrapSmtpPass);
 
 export const smtpTransport = nodemailer.createTransport({
   host: "sandbox.smtp.mailtrap.io",
