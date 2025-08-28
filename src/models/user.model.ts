@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema<TUserDocument>({
   },
   occupation: {
     type: String,
+    default: null,
     trim: true
   },
   dob: {
@@ -37,9 +38,6 @@ const userSchema = new mongoose.Schema<TUserDocument>({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'RehabPlan'
   }],
-  planStartDate: {
-    type: Date
-  },
   notifications: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Notification'
@@ -66,15 +64,6 @@ const userSchema = new mongoose.Schema<TUserDocument>({
     enum: ['user', 'admin'],
     default: 'user'
   },
-  resetPasswordToken: {
-    type: String,
-    default: null,
-  },
-  resetPasswordTokenExpiresAt: {
-    type: Date,
-    default: null,
-  }
-
 },{
   timestamps: true
 });

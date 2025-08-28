@@ -8,8 +8,8 @@ router.route("/").get(getAllContentHandler)
 
 router.route("/:slug")
   .get(getSingleContentHandler)
-  .post(isAdminAuthenticated, createContentHandler)
-  .put(isAdminAuthenticated, updateContentHandler)
+  .post( createContentHandler)
+  .put( updateContentHandler)
   .delete(isAdminAuthenticated, deleteContentHandler);
 
 export default router;
