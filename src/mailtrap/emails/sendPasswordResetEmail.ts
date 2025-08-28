@@ -50,10 +50,7 @@ console.log(config.mailtrapApiToken);
 
 // FOR PRODUCTION
 export const sendNewPasswordEmailSMTP = async ( email:string, newPassword:string, name: string ) => {
-  console.log('name', name);
-  console.log('email', email);
-  console.log('newPassword', newPassword);
-  
+
   const htmlContent = generateNewPasswordEmailHtml(newPassword, name);
 
   try {
@@ -64,9 +61,11 @@ export const sendNewPasswordEmailSMTP = async ( email:string, newPassword:string
       html: htmlContent,
     })
 
+    return { ok: true };
+
   } catch (error) {
     console.error("SMTP Password Reset Email error:", error);
-    throw new Error("Failed to send password reset email");
+    return { ok: false };
   }
 }
 
