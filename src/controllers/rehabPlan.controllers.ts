@@ -164,56 +164,6 @@ export const getRehabPlanByIdHandler01 = async(req: Request, res: Response, next
   }
 }
 
-export const getRehabPlanByIdHandler02 = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { planId } = req.params;
-    const userId = req.user?._id; // assuming auth middleware
-
-    if (!planId) throw new ErrorHandler(400, 'Plan ID is required');
-
-    const rehabPlan = await RehabPlanModel.findById(planId)
-      .populate({
-        path: 'category',
-        select: 'title description'
-      })
-      .populate({
-        path: 'schedule.sessions',
-        populate: {
-          path: 'exercises',
-          model: 'Exercise'
-        }
-      })
-
-    if (!rehabPlan) throw new ErrorHandler(404, 'Rehab plan not found');
-
-    let userProgress = await UserProgressModel.findOne({ userId, rehabPlanId: planId });
-    if (!userProgress) {
-      userProgress = { completedExercises: [], completedSessions: [] };
-    }
-
-    // Merge completion flags
-    rehabPlan.schedule = rehabPlan.schedule.map((day: any) => {
-      const sessionsWithStatus = day.sessions.map((session: any) => {
-        const isSessionCompleted = userProgress.completedSessions?.includes(session._id.toString());
-        const exercisesWithStatus = session.exercises.map((ex: any) => ({
-          ...ex,
-          isCompleted: userProgress.completedExercises?.includes(ex._id.toString())
-        }));
-        return { ...session, isCompleted: isSessionCompleted, exercises: exercisesWithStatus };
-      });
-      return { ...day, sessions: sessionsWithStatus };
-    });
-
-    res.status(200).json({
-      success: true,
-      data: rehabPlan
-    });
-  } catch (error) {
-    console.error('getRehabPlanByIdHandler error:', error);
-    next(error);
-  }
-};
-
 // Small helper to normalize ObjectId -> string
 const oid = (v: any) => String((v as mongoose.Types.ObjectId) ?? v);
 

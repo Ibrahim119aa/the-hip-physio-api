@@ -200,7 +200,7 @@ export const adminLoginHandler = async (req: Request<{}, {}, TUserLoginRequest>,
     // Generate JWT token and save in cookies
     const token = generateTokenAndSaveCookies(
       {
-        userId: user._id, 
+        adminId: user._id, 
         email: user.email,
       }, 
       res
@@ -221,6 +221,19 @@ export const adminLoginHandler = async (req: Request<{}, {}, TUserLoginRequest>,
 
   } catch (error) {
     console.error('loginHandler error', error);
+    next(error)
+  }
+}
+
+export const adminLogoutHandler = async(req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.clearCookie('atoken');
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful'
+    });
+  } catch (error) {
+    console.error('logoutHandler error', error);
     next(error)
   }
 }

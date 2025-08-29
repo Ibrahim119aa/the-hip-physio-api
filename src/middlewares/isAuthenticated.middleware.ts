@@ -1,6 +1,6 @@
   import { NextFunction, Request, Response } from "express";
   import ErrorHandler from "../utils/errorHandlerClass";
-  import { verifyToken } from "../utils/JwtHelpers";
+  import { verifyAdminToken, verifyUserToken } from "../utils/JwtHelpers";
   import jwt from "jsonwebtoken";
 
   // Extend Request interface to include user
@@ -23,7 +23,7 @@
       throw new ErrorHandler(401, 'Please login.');
     }
 
-    const decoded = verifyToken(userToken) as jwt.JwtPayload;
+    const decoded = verifyUserToken(userToken) as jwt.JwtPayload;
 
     if (!decoded?.userId) {
       throw new ErrorHandler(401, 'Invalid user token.');
@@ -40,13 +40,15 @@
 const isAdminAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const adminToken = req.cookies.aToken;
+    console.log('adminToken', adminToken);
+    
 
     if (!adminToken) {
       throw new ErrorHandler(401, 'Please login as an admin.');
     }
 
-    const decoded = verifyToken(adminToken) as jwt.JwtPayload;
-
+    const decoded = verifyAdminToken(adminToken) as jwt.JwtPayload;
+    
     if (!decoded?.adminId) {
       throw new ErrorHandler(401, 'Invalid admin token.');
     }

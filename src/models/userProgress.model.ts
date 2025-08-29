@@ -1,6 +1,15 @@
 import mongoose from "mongoose";
 import { TUserProgressDocument } from "../types/userProgress.types";
 
+const userNoteSchema = new mongoose.Schema(
+  {
+    text: { type: String, required: true, trim: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -31,7 +40,8 @@ const userProgressSchema = new mongoose.Schema<TUserProgressDocument>({
     completedAtUTC: { type: Date, required: true },
     completedAtLocal: { type: String, required: true },
     timezone: { type: String, required: true },
-    dayKey: { type: String, required: true }
+    dayKey: { type: String, required: true },
+    userNote: { type: userNoteSchema, default: null }
   }],
 
   currentWeek: {
