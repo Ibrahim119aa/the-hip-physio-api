@@ -20,7 +20,7 @@ export const adminLoginHandler = async (req: Request, res: Response, next: NextF
     // Generate JWT token and save in cookies
     const token = generateTokenAndSaveCookies(
       {
-        userId: user._id, 
+        adminId: user._id, 
         email: user.email,
       }, 
       res

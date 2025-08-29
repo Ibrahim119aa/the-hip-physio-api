@@ -8,9 +8,9 @@ import {
   userLoginHandler,
   adminLoginHandler,
   getUserProfileHandler,
-  updateUserProfileHandler
+  updateUserProfileHandler,
+  adminLogoutHandler
 } from "../controllers/user.controllers";
-import {  } from "../middlewares/isAdmin.middleware";
 import { isAdminAuthenticated, isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 import { uploadProfileImage, validateProfileImageUpload } from "../middlewares/upload.middleware";
@@ -27,6 +27,7 @@ router.route("/profile")
 
 // Admin routes (protected by admin middleware)
 router.route("/admin/login").post(adminLoginHandler)
+router.route("/admin/logout").post(isAdminAuthenticated, hasRole('admin'), adminLogoutHandler)
 router.route("/admin/first-admin").post(createFirstAdminHandler)
 router.route("/admin/users").get(getUsersHandler)
 router.route("/admin/users/:userId/role").put(isAdminAuthenticated, hasRole('admin'), assignAdminRoleHandler)

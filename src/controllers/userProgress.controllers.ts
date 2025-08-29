@@ -354,7 +354,7 @@ export const markExerciseCompleteHandler = async (req: Request, res: Response, n
 
 export const markSessionCompleteAndStreakCount = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { planId, sessionId, difficultyRating, timezone } = req.body;
+    const { planId, sessionId, difficultyRating, timezone, userNote } = req.body;
     const userId = req.userId;
 
     if (!planId || !sessionId || !userId || !timezone) {
@@ -382,7 +382,14 @@ export const markSessionCompleteAndStreakCount = async (req: Request, res: Respo
       completedAtUTC,
       completedAtLocal,
       timezone,
-      dayKey
+      dayKey,
+      userNote: userNote && userNote.trim() !== "" 
+        ? {
+            text: userNote.trim(),
+            createdBy: userId,
+            createdAt: new Date()
+          }
+        : null
     };
 
     // First-time user (or no previous sessions)
