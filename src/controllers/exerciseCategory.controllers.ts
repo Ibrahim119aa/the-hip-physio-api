@@ -134,8 +134,13 @@ export const getAllCategoriesHandler = async (req: Request, res: Response, next:
   try {
     const categories = await ExerciseCategoryModel.find();
     
+    if (!categories || categories.length === 0) {
+      throw new ErrorHandler(404, 'No exercise categories found');
+    }
+    
     res.status(200).json({
       success: true,
+      message: 'Categories fetched successfully',
       data: categories
     });
 

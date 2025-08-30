@@ -18,10 +18,6 @@ export const createExerciseSchema = z.object({
     .transform(value => domPurify.sanitize(value.trim())),
   category: z.string()
     .min(1, { message: "Reps are required" }),
-  categoryName: z.string()
-    .min(3, { message: "Category name must be at least 3 characters long" })
-    .max(50)
-    .transform(value => domPurify.sanitize(value.trim())),
   bodyPart: z.string()
     .min(3, { message: "Body part must be at least 3 characters long" })
     .max(50)

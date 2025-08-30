@@ -1,6 +1,8 @@
 import multer from 'multer';
 import { Request, Response, NextFunction } from 'express';
 import ErrorHandler from '../utils/errorHandlerClass';
+import fs from "fs";
+import path from 'path';
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -51,14 +53,43 @@ const fileFilter = ( req: Request, file: Express.Multer.File, cb: multer.FileFil
 };
 
 // Configure multer
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max file size
-    files: 2 // Max 2 files (video + thumbnail)
-  }
-});
+// const upload = multer({
+//   storage: storage,
+//   fileFilter: fileFilter,
+//   limits: {
+//     fileSize: 100 * 1024 * 1024, // 100MB max file size
+//     files: 2 // Max 2 files (video + thumbnail)
+//   }
+// });
+
+// const upload = multer({
+//   storage: multer.memoryStorage(),      // keep in RAM
+//   fileFilter,
+//   limits: {
+//     fileSize: 200 * 1024 * 1024,        // e.g. 200 MB cap
+//     files: 2
+//   }
+// });
+
+  const uploadsDir = path.join(process.cwd(), "uploads/tmp");
+  fs.mkdirSync(uploadsDir, { recursive: true });
+
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, uploadsDir),
+      filename: (_req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
+    }),
+    fileFilter,
+    limits: {
+      fileSize: 2 * 1024 * 1024 * 1024, // up to 2 GB
+      files: 2,
+    },
+  });
+
+export const uploadVideoAndThumbnail = upload.fields([
+  { name: "video", maxCount: 1 },
+  { name: "thumbnail", maxCount: 1 },
+]);
 
 // Middleware for single video upload
 export const uploadVideo = upload.single('video');
@@ -71,10 +102,10 @@ export const uploadProfileImage = upload.single('profileImage');
 
 
 // Middleware for both video and thumbnail upload
-export const uploadVideoAndThumbnail = upload.fields([
-  { name: 'video', maxCount: 1 },
-  { name: 'thumbnail', maxCount: 1 }
-]);
+// export const uploadVideoAndThumbnail = upload.fields([
+//   { name: 'video', maxCount: 1 },
+//   { name: 'thumbnail', maxCount: 1 }
+// ]);
 
 // Error handling middleware for multer
 export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction) => {
@@ -105,8 +136,8 @@ export const handleUploadError = (error: any, req: Request, res: Response, next:
 // Validation middleware for exercise uploads
 export const validateExerciseVideoUpload = (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log('Received files:', req.files);
-    console.log('Request body:', req.body);
+    console.log('Received files inside video middleware :', req.files);
+    console.log('Request body inside video middleware :', req.body);
     
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     

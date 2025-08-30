@@ -386,6 +386,40 @@ export const getUsersHandler = async (req: Request, res: Response, next: NextFun
   }
 };
 
+// GET /api/users/notifications-picklist?onlyActive=true
+// Returns ALL users (for the picker) with a slim projection.
+export const getUsersForNotificationsHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { onlyActive = 'true' } = req.query as Record<string, string>;
+    const returnOnlyActiveUsers = onlyActive === 'true';
+
+    const matchCriteria: Record<string, unknown> = {};
+    if (returnOnlyActiveUsers) matchCriteria.status = 'active';
+
+    const projectionFields = '_id name email status';
+
+    const usersForPicklist = await UserModel.find(matchCriteria)
+      .select(projectionFields)
+      .sort({ name: 1, email: 1 })
+      .lean();
+
+      if (!usersForPicklist || usersForPicklist.length === 0) {
+        throw new ErrorHandler(404, 'No users found');
+      }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Users for notifications picklist retrieved successfully',
+      users: usersForPicklist,
+      count: usersForPicklist.length,
+    });
+  } catch (error) {
+    console.error('getUsersForNotificationsHandler error', error);
+    next(error);
+  }
+};
+
+
 export const createFirstAdminHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, name, password } = req.body;
