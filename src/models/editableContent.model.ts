@@ -1,7 +1,5 @@
 import mongoose, { Schema } from "mongoose";
 
-
-
 const EditableContentSchema = new Schema(
   {
     title: { 

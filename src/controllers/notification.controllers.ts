@@ -7,49 +7,89 @@ import { auth, messaging } from '../config/firebase';
 // import { sendFcmNotification } from '../utils/send';
 
 
-export const createAndSheduleNotificationHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
+// export const createAndScheduleNotificationHandler = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
 
-    const { title, body, data, target, userIds, scheduleAt } = req.body
+//     const { title, body, data, target, userIds, scheduleAt } = req.body
 
-    if (!title || !body || !target) throw new ErrorHandler(400, 'Missing fields')
+//     if (!title || !body || !target) throw new ErrorHandler(400, 'Missing fields')
     
-    if (target === 'selected' && (!userIds || userIds.length === 0)) throw new ErrorHandler(400, 'userIds required for selected target');
+//     if (target === 'selected' && (!userIds || userIds.length === 0)){
+//       throw new ErrorHandler(400, 'userIds required for selected target');
+//     }
+
+//     const notif = await NotificationModel.create({
+//       title, 
+//       body, 
+//       data: data || {}, 
+//       target,
+//       userIds: target === 'selected' ? userIds : [],
+//       scheduleAt: scheduleAt ? new Date(scheduleAt) : undefined,
+//       status: scheduleAt ? 'scheduled' : 'queued',
+//     });
+
+//     if (scheduleAt) {
+//       await agenda.schedule(
+//         new Date(scheduleAt), 
+//         'send-notification', 
+//         { notificationId: notif._id.toString() }
+//       );
+//     } else {
+//       await agenda.now(
+//         'send-notification', 
+//         { notificationId: notif._id.toString() }
+//       );
+//     }
+
+//     res.json({
+//       success: true, 
+//       message: scheduleAt ? 'Notification scheduled' : 'Notification queued for sending',
+//       notificationId: notif._id 
+//     });
+
+//   } catch (error) {
+//     console.error('Error in createAndSheduleNotification:', error);
+//     next(error);    
+//   }
+// }
+
+// controllers/notifications.controller.ts
+export const createAndScheduleNotificationHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { title, body, data, audienceType, userIds, scheduleAt } = req.body;
+
+    if (!title || !body || !audienceType) throw new ErrorHandler(400, 'Missing fields');
+
+    if (audienceType === 'selected' && (!userIds || userIds.length === 0)) {
+      throw new ErrorHandler(400, 'userIds required for selected audience');
+    }
 
     const notif = await NotificationModel.create({
-      title, 
-      body, 
-      data: data || {}, 
-      target,
-      userIds: target === 'selected' ? userIds : [],
+      title,
+      body,
+      data: data || {},
+      audienceType,
+      userIds: audienceType === 'selected' ? userIds : [],
       scheduleAt: scheduleAt ? new Date(scheduleAt) : undefined,
       status: scheduleAt ? 'scheduled' : 'queued',
     });
 
     if (scheduleAt) {
-      await agenda.schedule(
-        new Date(scheduleAt), 
-        'send-notification', 
-        { notificationId: notif._id.toString() }
-      );
+      await agenda.schedule(new Date(scheduleAt), 'send-notification', { notificationId: notif._id.toString() });
     } else {
-      await agenda.now(
-        'send-notification', 
-        { notificationId: notif._id.toString() }
-      );
+      await agenda.now('send-notification', { notificationId: notif._id.toString() });
     }
 
     res.json({
-      success: true, 
+      success: true,
       message: scheduleAt ? 'Notification scheduled' : 'Notification queued for sending',
-      notificationId: notif._id 
+      notificationId: notif._id
     });
-
-  } catch (error) {
-    console.error('Error in createAndSheduleNotification:', error);
-    next(error);    
+  } catch (err) {
+    next(err);
   }
-}
+};
+
 
 // Cancel a scheduled notification (before it runs)
 export const cancelNotificationHandler = async(req: Request, res: Response, next: NextFunction) => {
@@ -300,3 +340,45 @@ export const fireBaseHealthCheckHandler = async(req: Request, res: Response, nex
     next(error)
   }
 }
+
+
+// controllers/notifications.controller.ts
+export const testSendToTokenHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token, title, body, data, link } = req.body;
+    if (!token || !title || !body) throw new ErrorHandler(400, 'token, title, body required');
+
+    const message = {
+      token,
+      notification: { title, body },
+      data: (data || {}) as Record<string, string>,
+      // Nice for Web receiving & clicking through:
+      webpush: {
+        notification: {
+          title,
+          body,
+          icon: '/icon-192.png',    // optional: serve a small icon
+        },
+        fcmOptions: {
+          link: link || '/',        // where to open on click (web)
+        },
+      },
+      android: { priority: 'high' as const },
+      apns: { payload: { aps: { sound: 'default' } } },
+    };
+
+    const resp = await messaging.send(message, false); // not dryRun
+    // If the token is invalid, this throws with a helpful code.
+    res.json({ success: true, messageId: resp });
+  } catch (err: any) {
+    res.status(400).json({ success: false, code: err?.code, message: err?.message });
+  }
+};
+
+export const getNotificationByIdHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const notif = await NotificationModel.findById(req.params.id).lean();
+    if (!notif) throw new ErrorHandler(404, 'Notification not found');
+    res.json({ success: true, data: notif });
+  } catch (e) { next(e); }
+};
