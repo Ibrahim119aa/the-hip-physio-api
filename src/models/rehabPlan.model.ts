@@ -1,79 +1,105 @@
+// models/rehabPlan.model.ts
 import mongoose from "mongoose";
 
-const rehabPlanSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  description: {
-    type: String
-  },
-  price: {
-    type: Number,
-    required: true
-  },
-  planType: {
-    type: String,
-    enum: ['paid', 'free'],
-    required: true
-  },
-  planDurationInWeeks: {
-    type: Number,
-    required: true
-  },
-
-  weekStart: { type: Number, default: null},                  // e.g. 0, 12, 28
-  weekEnd:   { type: Number, default: null },                 // e.g. 12, 28, 42 (nullable)
-  openEnded: { type: Boolean, default: false },               // true → render “ 28- 42+”
-  
-  phase: {
-    type: String,
-    required: true
-  },
-  category: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'RehabPlanCategory',
-    required: true
-  }],
-  // Structured weekly/daily schedule
-  schedule: [
-    {
-      week: {
-        type: Number,
-        required: true
-      },
-      day: {
-        type: Number,
-        required: true
-      },
-      sessions: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Session',
-        required: true
-      }]
+const scheduleItemSchema = new mongoose.Schema(
+  {
+    week: { 
+      type: Number, 
+      required: true, 
+      min: 0 
     },
-  ],
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  }
-}, { timestamps: true });
+    day: { 
+      type: Number, 
+      required: true, 
+      min: 1, max: 7 
+    },
+    sessions: [
+      { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "Session", 
+        required: true 
+      },
+    ],
+  },
+  { _id: false }
+);
 
-const RehabPlanModel = mongoose.models.RehabPlan || mongoose.model('RehabPlan', rehabPlanSchema);
+const rehabPlanSchema = new mongoose.Schema(
+  {
+    name: { 
+      type: String, 
+      required: true, 
+      trim: true 
+    },
+    description: { 
+      type: String, 
+      required: true, 
+      trim: true 
+    },
+
+    price: { 
+      type: Number, 
+      required: true, 
+      min: 0 
+    },
+    planType: { 
+      type: String, 
+      enum: ["paid", "free"], 
+      required: true 
+    },
+
+    planDurationInWeeks: { 
+      type: Number, 
+      required: true, 
+      min: 1 
+    },
+
+    // Either a number ≥ 0 or null. Using min with Number allows nulls.
+    weekStart: { 
+      type: Number, 
+      min: 0, 
+      default: null 
+    },
+    weekEnd: { 
+      type: Number, 
+      min: 0, 
+      default: null 
+    },
+    openEnded: { 
+      type: Boolean, 
+      default: false 
+    },
+
+    // Optional textual phase label
+    phase: { 
+      type: String, 
+      default: null, 
+      trim: true 
+    },
+
+    category: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "RehabPlanCategory",
+        required: true,
+      },
+    ],
+
+    schedule: {
+      type: [scheduleItemSchema],
+      default: [],
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const RehabPlanModel =
+  mongoose.models.RehabPlan || mongoose.model("RehabPlan", rehabPlanSchema);
 
 export default RehabPlanModel;
-
-
-  // metadata: {
-  //   app_plan_id: String(plan._id),
-  //   app_plan_name: plan.name,
-  //   app_phase: plan.phase,
-  //   week_start: String(plan.weekStart ?? ''),
-  //   week_end: String(plan.weekEnd ?? ''),
-  //   open_ended: String(!!plan.openEnded),
-  //   badge: plan.weekStart != null
-  //     ? `Week ${plan.weekStart}-${plan.openEnded ? `${plan.weekEnd}+` : plan.weekEnd}`
-  //     : `${plan.planDurationInWeeks}-Weeks`,
-  // },

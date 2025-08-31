@@ -6,10 +6,27 @@ import UserProgressModel from "../models/userProgress.model";
 import SessionModel from "../models/session.model";
 import ExerciseModel from "../models/exercise.model";
 import mongoose from "mongoose";
+import { createRehabPlanPhaseSchema, planIdParamSchema, TPlanIdParams, TRehabPlanCreateRequest, TUpdateRehabPlanRequest, updateRehabPlanSchema } from "../validationSchemas/rehabPlan.schema";
+import UserModel from "../models/user.model";
 
-export const createRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const createRehabPlanHandler = async(
+  req: Request<{}, {}, TRehabPlanCreateRequest>, 
+  res: Response, 
+  next: NextFunction
+) => {
   try {
+
+    const parsedBody = createRehabPlanPhaseSchema.safeParse(req.body)
+    const adminId = req.adminId
     console.log('req.body', req.body);
+    console.log('req. parse', parsedBody);
+    console.log('admin', adminId);
+    
+    
+    if (!parsedBody.success) {
+      const errorMessages = parsedBody.error.issues.map(issue => issue.message).join(', ');
+      throw new ErrorHandler(400, errorMessages);
+    }
     
     const {
       name,
@@ -17,41 +34,46 @@ export const createRehabPlanHandler = async(req: Request, res: Response, next: N
       price,
       planType,
       planDurationInWeeks,
-      phase,
-      category
-    } = req.body;
+      weekStart,   // number | null
+      weekEnd,     // number | null
+      openEnded,
+      phase,       // string | null
+      category     // string[]
+    } = parsedBody.data;
 
-    // const demoPlan = {
-    //   name: 'testing',
-    //   description: 'A bespoke app-based rehabilitation guide to help with rehab after FAI surgery',
-    //   price: 135,
-    //   planType: 'paid',
-    //   planDurationInWeeks: 5,
-    //   phase: 'phase 1',
-    //   schedule: [], // Add empty schedule for now
-    //   category: ["6894f582c9b7fc9f49774256"],
-    //   stats: {
-    //     exerciseCount: 19, // Static value for now
-    //     totalMinutes: 90, // Static value for now
-    //   },
-    //   createdBy: req.userId
-    // };
-    const savePlan = new RehabPlanModel({
+    if (planType === "free" && price !== 0) {
+      throw new ErrorHandler(400, "Free plan must have price = 0");
+    }
+
+    if (
+      weekStart !== null &&
+      weekEnd !== null &&
+      typeof weekStart === "number" &&
+      typeof weekEnd === "number" &&
+      weekEnd < weekStart
+    ) {
+      throw new ErrorHandler(400, "weekEnd must be greater than or equal to weekStart");
+    }
+
+    // 4) Create plan (schedule left empty by default)
+    const plan = await RehabPlanModel.create({
       name,
       description,
       price,
       planType,
       planDurationInWeeks,
+      weekStart,    // will store null or number correctly
+      weekEnd,
+      openEnded,
       phase,
       category,
-      createdBy: "688a482be8f40c8e173608c6"
+      createdBy: adminId,
     });
     
-    const createdPlan = await savePlan.save();
-
     res.status(201).json({
       success: true,
-      data: createdPlan
+      message: "Rehab plan created successfully",
+      data: plan
     });
 
   } catch (error) {
@@ -60,56 +82,192 @@ export const createRehabPlanHandler = async(req: Request, res: Response, next: N
   }
 }
 
-export const updateRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
-  console.log('working api update');
-  
+export const updateRehabPlanHandler = async (
+  req: Request<TPlanIdParams, {}, TUpdateRehabPlanRequest>,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { planId } = req.params;
-    const updateData = req.body;
-
-    console.log('req.params', req.params);
-    console.log('req.body', req.body);
     
-    // Validate planId
-    if (!planId) {
-      throw new ErrorHandler(400, 'Plan ID is required');
+    const parsedParams = planIdParamSchema.safeParse(req.params);
+    
+    if (!parsedParams.success) {
+      return next(new ErrorHandler(400, "Invalid plan id"));
+    }
+    
+    const { planId } = parsedParams.data;
+
+    // Validate body (simple schema; all fields optional; createdBy is not allowed)
+    const parsedBody = updateRehabPlanSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      const errorMessages = parsedBody.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMessages);
     }
 
-    // Find and update the rehab plan
-    const updatedPlan = await RehabPlanModel.findByIdAndUpdate(planId, updateData, { new: true });
+    const data = parsedBody.data;
 
-    if (!updatedPlan) {
-      throw new ErrorHandler(404, 'Rehab plan not found');
+    // If nothing to update, bail early
+    if (Object.keys(data).length === 0) {
+      throw new ErrorHandler(400, "Nothing to update");
     }
+
+    // Minimal business rules (kept out of Zod per your preference)
+    if (data.planType === "free" && data.price !== undefined && data.price !== 0) {
+      throw new ErrorHandler(400, "Free plan must have price = 0");
+    }
+
+    if (
+      data.weekStart !== undefined &&
+      data.weekEnd !== undefined &&
+      data.weekStart !== null &&
+      data.weekEnd !== null &&
+      typeof data.weekStart === "number" &&
+      typeof data.weekEnd === "number" &&
+      data.weekEnd < data.weekStart
+    ) {
+      throw new ErrorHandler(400, "weekEnd must be greater than or equal to weekStart");
+    }
+
+    // Build update doc without undefineds
+    const updateDoc: any = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        const value = (data as any)[key];
+        if (value !== undefined) updateDoc[key] = value;
+      }
+    }
+
+    // Update with validators ON to respect Mongoose schema rules
+    const updated = await RehabPlanModel.findByIdAndUpdate(planId, updateDoc, {
+      new: true,
+      runValidators: true,
+    }).lean();
+
+    if (!updated) throw new ErrorHandler(404, "Rehab plan not found");
 
     res.status(200).json({
       success: true,
-      data: updatedPlan
+      message: "Rehab plan updated successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("updateRehabPlanHandler error:", error);
+    next(error);
+  }
+};
+
+
+export const deleteRehabPlanHandler = async (
+  req: Request<TPlanIdParams>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedParams = planIdParamSchema.safeParse(req.params);
+   
+    if (!parsedParams.success) {
+      return next(new ErrorHandler(400, "Invalid plan id"));
+    }
+    const { planId } = parsedParams.data;
+
+    const deleted = await RehabPlanModel.findByIdAndDelete(planId).lean();
+  
+    if (!deleted) throw new ErrorHandler(404, "Rehab plan not found");
+
+    res.status(200).json({
+      success: true,
+      message: "Rehab plan deleted successfully",
+      // data: deleted,
     });
 
   } catch (error) {
-    console.error('updateRehabPlanHandler error :', error);
-    next(error)
+    console.error("deleteRehabPlanHandler error:", error);
+    next(error);
   }
-}
+};
 
-export const deleteRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const assigPlanToUserHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
+    const { planId } = req.params
+    const { userId } = req.body
+
+    const plan = await RehabPlanModel.find({ _id: planId });
+    if(!plan) throw new ErrorHandler(404, 'Rehab plan not found');
+
+    const user = await UserModel.findById(userId);
+    if (!user) throw new ErrorHandler(404, 'User not found');
+
+    // 3. Check if the user has already purchased the plan
+    const alreadyAssigned = user.purchasedPlans.some( (purchasedPlanId: any) => purchasedPlanId.toString() === planId);
+
+    if (alreadyAssigned) {
+      throw new ErrorHandler(400, 'User is already assigned this rehab plan');
+    } else {
+      user.purchasedPlans.push(planId);
+      await user.save();
+    }
+    res.status(200).json({
+      success: true,
+      message: 'Rehab plan assigned to user successfully',
+    });
 
   } catch (error) {
-    console.error('deleteRehabPlanHandler error :', error);
+    console.error('assigPlanToUserHandler error :', error);
     next(error)
   }
 }
 
-export const getRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
-  try {
+// export const updateRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
+//   console.log('working api update');
+  
+//   try {
+//     const { planId } = req.params;
+//     const updateData = req.body;
 
-  } catch (error) {
-    console.error('getRehabPlanHandler error :', error);
-    next(error)
-  }
-}
+//     console.log('req.params', req.params);
+//     console.log('req.body', req.body);
+    
+//     // Validate planId
+//     if (!planId) {
+//       throw new ErrorHandler(400, 'Plan ID is required');
+//     }
+
+//     // Find and update the rehab plan
+//     const updatedPlan = await RehabPlanModel.findByIdAndUpdate(planId, updateData, { new: true });
+
+//     if (!updatedPlan) {
+//       throw new ErrorHandler(404, 'Rehab plan not found');
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       data: updatedPlan
+//     });
+
+//   } catch (error) {
+//     console.error('updateRehabPlanHandler error :', error);
+//     next(error)
+//   }
+// }
+
+// export const deleteRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
+//   try {
+
+//   } catch (error) {
+//     console.error('deleteRehabPlanHandler error :', error);
+//     next(error)
+//   }
+// }
+
+// export const getRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
+//   try {
+
+//   } catch (error) {
+//     console.error('getRehabPlanHandler error :', error);
+//     next(error)
+//   }
+// }
 
 export const getRehabPlanByIdHandler01 = async(req: Request, res: Response, next: NextFunction) => {
   try {
@@ -407,41 +565,6 @@ export const getRehabPlanByIdHandler = async (
   }
 };
 
-
-// export const getAllRehabPlansHandler = async(req: Request, res: Response, next: NextFunction) => {
-//  try {
-
-//     const rehabPlans = await RehabPlanModel.find()
-//       .populate({
-//         path: 'category',
-//         select: 'title description'
-//       })
-//       .populate({
-//         path: 'schedule.sessions',
-//         populate: { 
-//           path: 'exercises',
-//           model: 'Exercise'
-
-//         }
-//       })
-//       .lean();
-
-//     if(!rehabPlans || rehabPlans.length === 0) {
-//       throw new ErrorHandler(404, 'No rehab plans found');
-//     }
-        
-//     res.status(200).json({
-//       success: true,
-//       data: rehabPlans
-//     });
-
-//   } catch (error) {
-//     console.error('getRehabPlansHandler error:', error);
-//     next(error);
-//   }
-// }
-
-
 export const getAllRehabPlansHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const catColl = RehabPlanCategoryModel.collection.name; // safe actual names
@@ -527,7 +650,7 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
       {
         $project: {
           _id: 1,
-          title: "$name",
+          name: 1,
           description: 1,
           price: 1,
           planType: 1,
@@ -583,50 +706,3 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
     next(err);
   }
 };
-
-export const createRehabPlanCategory = async(req: Request, res: Response, next: NextFunction) => {
-  try {
-    
-    const { title, description } = req.body;
-
-    if (!title || !description) {
-      throw new ErrorHandler(400, 'title and description are required');
-    }
-
-    const newCategory = await RehabPlanCategoryModel.create({
-      title,
-      description,
-      createdBy: req.userId
-    });
-
-    res.status(201).json({
-      success: true,
-      data: newCategory
-    });
-
-  } catch (error) {
-    console.error('createRehabPlanCategory error:', error);
-    next(error);
-  }
-}
-
-export const getAllRehabPlanCategories = async(req: Request, res: Response, next: NextFunction) => {
-  try {
-    console.log('this is working')
-    const categories = await RehabPlanCategoryModel.find({}).lean();
-    console.log('categories', categories);
-    
-    if(!categories || categories.length === 0) {
-      throw new ErrorHandler(404, 'No categories found');
-    }
-
-    res.status(200).json({
-      success: true,
-      data: categories
-    });
-
-  } catch (error) {
-    console.error('getAllRehabPlanCategories error:', error);
-    next(error);
-  }
-}
