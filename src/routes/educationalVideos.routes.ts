@@ -1,20 +1,21 @@
 import { Router } from "express";
 import { createEducationalVideoCategoryHandler, getAllEducationalVideoCategoriesHandler } from "../controllers/educationalVideosCategory.controllers";
-import { createEducationalVideoHandler, getAllEducationalVideosHandler } from "../controllers/educationalVideos.controllers";
-import { uploadVideoAndThumbnail, validateExerciseVideoUpload } from "../middlewares/upload.middleware";
+import { addEducationalVideoHandler, deleteEducationalVideoHandler, getAllEducationalVideosHandler, updateEducationalVideoHandler } from "../controllers/educationalVideos.controllers";
+import { uploadVideoAndThumbnail, validateVideoUpload } from "../middlewares/upload.middleware";
+import { isAdminAuthenticated } from "../middlewares/isAuthenticated.middleware";
 
 const router = Router()
 
 router.route("/")
-  .post(uploadVideoAndThumbnail, validateExerciseVideoUpload, createEducationalVideoHandler)
-  .get(getAllEducationalVideosHandler)
+  .post(uploadVideoAndThumbnail, validateVideoUpload, addEducationalVideoHandler)
+  .get(getAllEducationalVideosHandler);
+router.route("/:id")
+  .put(isAdminAuthenticated, uploadVideoAndThumbnail, updateEducationalVideoHandler)
+  .delete(isAdminAuthenticated, deleteEducationalVideoHandler);
 
-  // example for large videos 
-  // router.post("/videos", uploadSingleVideo, uploadVideoHandler);
-  
-// categories routes
+  // categories routes
 router.route("/category")
-  .post(createEducationalVideoCategoryHandler)
+  .post(isAdminAuthenticated, createEducationalVideoCategoryHandler)
   .get(getAllEducationalVideoCategoriesHandler);
 
 

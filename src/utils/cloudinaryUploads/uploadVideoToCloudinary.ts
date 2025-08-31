@@ -161,9 +161,7 @@ export type UploadVideoResult = { url: string; duration: number; publicId: strin
 
 
 
-export const uploadVideoToCloudinary = async (
-  file: Express.Multer.File
-): Promise<UploadVideoResult> => {
+export const uploadVideoToCloudinary = async ( file: Express.Multer.File, subFolder: string): Promise<UploadVideoResult> => {
   const filePath = (file as unknown as { path?: string })?.path;
 
   if (!file) throw new ErrorHandler(400, "No video file provided");
@@ -172,7 +170,7 @@ export const uploadVideoToCloudinary = async (
 
   const options = {
     resource_type: "video" as const,                    // important for video
-    folder: "hip-physio/exercises/videos",
+    folder: `hip-physio/${subFolder}/videos`,
     chunk_size: 20 * 1024 * 1024,                       // 20MB chunks
     eager: [
       { width: 640, height: 480, crop: "scale", quality: "auto" },

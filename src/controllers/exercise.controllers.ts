@@ -3,12 +3,13 @@ import fs from "fs/promises";
 
 import ErrorHandler from "../utils/errorHandlerClass";
 import { uploadVideoToCloudinary } from "../utils/cloudinaryUploads/uploadVideoToCloudinary";
-import { uploadExerciseThumbnailToCloudinary } from "../utils/cloudinaryUploads/uploadExerciseThumbnailToCloudinary";
 import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudinaryUploads/extractPublicIdFromUrl";
 import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
 import mongoose from "mongoose";
 import ExerciseModel from "../models/exercise.model";
 import { createExerciseSchema, exerciseCategoryParamSchema, ExerciseParamsSchema, TExerciseParams, TExerciseRequest, TUpdateExerciseRequest, updateExerciseSchema } from "../validationSchemas/excercise.schema";
+import { uploadThumbnailToCloudinary } from "../utils/cloudinaryUploads/uploadThumbnailToCloudinary";
+
 
 export type UploadVideoResult = { url: string; duration: number; publicId: string };
 export type UploadThumbResult = { url: string; publicId: string };
@@ -54,11 +55,12 @@ export const addExerciseHandler = async (
     if (existing) throw new ErrorHandler(409, "Exercise with this name already exists");
 
     console.log("Uploading video to Cloudinary...");
-    uploadedVideo = await uploadVideoToCloudinary(videoFile);
+    const subFolder = "exercises"
+    uploadedVideo = await uploadVideoToCloudinary(videoFile, subFolder);
 
     if (thumbFile) {
       console.log("Uploading thumbnail to Cloudinary...");
-      uploadedThumb = await uploadExerciseThumbnailToCloudinary(thumbFile);
+      uploadedThumb = await uploadThumbnailToCloudinary(thumbFile, subFolder);
       thumbWasUploaded = true;
     }
 
@@ -171,7 +173,7 @@ export const addExerciseHandler = async (
 //     // Upload thumbnail if provided, otherwise generate from video
 //     if (req.thumbnailFile) {
 //       console.log('Uploading thumbnail to Cloudinary...');
-//       uploadedThumbnailUrl = await uploadExerciseThumbnailToCloudinary(req.thumbnailFile);
+//       uploadedThumbnailUrl = await uploadThumbnailToCloudinary(req.thumbnailFile);
 //     } else {
 //       console.log('Generating thumbnail from video...');;
       
@@ -314,8 +316,9 @@ export const updateExerciseHandler = async (
     }
 
     // 1) Upload new assets first
-    if (incomingVideoFile) newVideo = await uploadVideoToCloudinary(incomingVideoFile);
-    if (incomingThumbFile) newThumb = await uploadExerciseThumbnailToCloudinary(incomingThumbFile);
+    const subFolder = "exercises"
+    if (incomingVideoFile) newVideo = await uploadVideoToCloudinary(incomingVideoFile, subFolder);
+    if (incomingThumbFile) newThumb = await uploadThumbnailToCloudinary(incomingThumbFile, subFolder);
 
     // 2) Build patch
     const patch: any = { ...updatePayload };
@@ -454,7 +457,7 @@ export const updateExerciseHandler = async (
 //       }
 
 //       // Upload new thumbnail
-//       uploadedThumbnailUrl = await uploadExerciseThumbnailToCloudinary(req.thumbnailFile);
+//       uploadedThumbnailUrl = await uploadThumbnailToCloudinary(req.thumbnailFile);
 //       updateData.thumbnailUrl = uploadedThumbnailUrl;
 //     } else if (updateData.videoUrl) {
 //       // Generate thumbnail from video URL (only if videoUrl is updated)
@@ -698,22 +701,6 @@ export const getExerciseByIdHandler = async (req: Request, res: Response, next: 
   }
 };
 
-// Get all tags
-export const getAllTagsHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const tags = await ExerciseModel.distinct('tags');
-    
-    res.status(200).json({
-      success: true,
-      data: tags
-    });
-
-  } catch (error) {
-    console.error('getAllTagsHandler error', error);
-    next(error);
-  }
-};
-
 // Get exercises by category
 export const getExercisesByCategoryHandler = async (req: Request<TExerciseParams>, res: Response, next: NextFunction) => {
   try {
@@ -780,135 +767,135 @@ export const getExercisesByCategoryHandler = async (req: Request<TExerciseParams
   }
 };
 
-// Search exercises
-export const searchExercisesHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { q, page = 1, limit = 20 } = req.query;
+// // Search exercises
+// export const searchExercisesHandler = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const { q, page = 1, limit = 20 } = req.query;
     
-    if (!q || typeof q !== 'string') {
-      throw new ErrorHandler(400, 'Search query is required');
-    }
+//     if (!q || typeof q !== 'string') {
+//       throw new ErrorHandler(400, 'Search query is required');
+//     }
     
-    const sanitizeQuery = (input: string) => input.replace(/["]/g, '');
-    const cleanQuery = sanitizeQuery(q);
-    const processedQuery = cleanQuery.includes(' ') ? `"${cleanQuery}"` : cleanQuery;
+//     const sanitizeQuery = (input: string) => input.replace(/["]/g, '');
+//     const cleanQuery = sanitizeQuery(q);
+//     const processedQuery = cleanQuery.includes(' ') ? `"${cleanQuery}"` : cleanQuery;
 
-    const skip = (Number(page) - 1) * Number(limit);
+//     const skip = (Number(page) - 1) * Number(limit);
 
-    const exercises = await ExerciseModel.find(
-      { $text: { $search: processedQuery } },
-      { score: { $meta: "textScore" } }
-    )
-      .sort({ score: { $meta: "textScore" } })
-      .skip(skip)
-      .limit(Number(limit));
+//     const exercises = await ExerciseModel.find(
+//       { $text: { $search: processedQuery } },
+//       { score: { $meta: "textScore" } }
+//     )
+//       .sort({ score: { $meta: "textScore" } })
+//       .skip(skip)
+//       .limit(Number(limit));
 
-    const total = await ExerciseModel.countDocuments({ $text: { $search: processedQuery } });
+//     const total = await ExerciseModel.countDocuments({ $text: { $search: processedQuery } });
 
-    res.status(200).json({
-      success: true,
-      data: exercises,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(total / Number(limit)),
-        totalItems: total,
-        itemsPerPage: Number(limit)
-      }
-    });
+//     res.status(200).json({
+//       success: true,
+//       data: exercises,
+//       pagination: {
+//         currentPage: Number(page),
+//         totalPages: Math.ceil(total / Number(limit)),
+//         totalItems: total,
+//         itemsPerPage: Number(limit)
+//       }
+//     });
 
-  } catch (error) {
-    console.error('searchExercisesHandler error', error);
-    next(error);
-  }
-};
+//   } catch (error) {
+//     console.error('searchExercisesHandler error', error);
+//     next(error);
+//   }
+// };
 
-// Get exercises for dashboard (active exercises only)
-export const getDashboardExercisesHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { bodyPart, category, tags, limit = 10 } = req.query;
+// // Get exercises for dashboard (active exercises only)
+// export const getDashboardExercisesHandler = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const { bodyPart, category, tags, limit = 10 } = req.query;
 
-    const query: any = { isActive: true };
+//     const query: any = { isActive: true };
 
-    if (bodyPart) {
-      query.bodyPart = bodyPart;
-    }
+//     if (bodyPart) {
+//       query.bodyPart = bodyPart;
+//     }
 
-    if (category) {
-      query.category = category;
-    }
+//     if (category) {
+//       query.category = category;
+//     }
 
-    if (tags) {
-      const tagArray = Array.isArray(tags) ? tags : [tags];
-      query.tags = { $in: tagArray };
-    }
+//     if (tags) {
+//       const tagArray = Array.isArray(tags) ? tags : [tags];
+//       query.tags = { $in: tagArray };
+//     }
 
-    const exercises = await ExerciseModel.find(query)
-      .sort({ createdAt: -1 })
-      .limit(Number(limit));
+//     const exercises = await ExerciseModel.find(query)
+//       .sort({ createdAt: -1 })
+//       .limit(Number(limit));
 
-    res.status(200).json({
-      success: true,
-      data: exercises
-    });
+//     res.status(200).json({
+//       success: true,
+//       data: exercises
+//     });
 
-  } catch (error) {
-    console.error('getDashboardExercisesHandler error', error);
-    next(error);
-  }
-};
+//   } catch (error) {
+//     console.error('getDashboardExercisesHandler error', error);
+//     next(error);
+//   }
+// };
 
-// Get all body parts
-export const getAllBodyPartsHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const bodyParts = await ExerciseModel.distinct('bodyPart');
+// // Get all body parts
+// export const getAllBodyPartsHandler = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const bodyParts = await ExerciseModel.distinct('bodyPart');
     
-    res.status(200).json({
-      success: true,
-      data: bodyParts
-    });
+//     res.status(200).json({
+//       success: true,
+//       data: bodyParts
+//     });
 
-  } catch (error) {
-    console.error('getAllBodyPartsHandler error', error);
-    next(error);
-  }
-};
+//   } catch (error) {
+//     console.error('getAllBodyPartsHandler error', error);
+//     next(error);
+//   }
+// };
 
-// Get exercises by body part
-export const getExercisesByBodyPartHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { bodyPart } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+// // Get exercises by body part
+// export const getExercisesByBodyPartHandler = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const { bodyPart } = req.params;
+//     const { page = 1, limit = 20 } = req.query;
 
-    if (!bodyPart) {
-      throw new ErrorHandler(400, 'Body part is required');
-    }
+//     if (!bodyPart) {
+//       throw new ErrorHandler(400, 'Body part is required');
+//     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-    console.log('bodyPart', bodyPart);
+//     const skip = (Number(page) - 1) * Number(limit);
+//     console.log('bodyPart', bodyPart);
     
-    const exercises = await ExerciseModel.find({
-      bodyPart: { $regex: new RegExp(`^${bodyPart}$`, 'i') },
-      isActive: true 
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+//     const exercises = await ExerciseModel.find({
+//       bodyPart: { $regex: new RegExp(`^${bodyPart}$`, 'i') },
+//       isActive: true 
+//     })
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(Number(limit));
 
-    const total = await ExerciseModel.countDocuments({ bodyPart, isActive: true });
+//     const total = await ExerciseModel.countDocuments({ bodyPart, isActive: true });
 
-    res.status(200).json({
-      success: true,
-      data: exercises,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(total / Number(limit)),
-        totalItems: total,
-        itemsPerPage: Number(limit)
-      }
-    });
+//     res.status(200).json({
+//       success: true,
+//       data: exercises,
+//       pagination: {
+//         currentPage: Number(page),
+//         totalPages: Math.ceil(total / Number(limit)),
+//         totalItems: total,
+//         itemsPerPage: Number(limit)
+//       }
+//     });
 
-  } catch (error) {
-    console.error('getExercisesByBodyPartHandler error', error);
-    next(error);
-  }
-}; 
+//   } catch (error) {
+//     console.error('getExercisesByBodyPartHandler error', error);
+//     next(error);
+//   }
+// }; 

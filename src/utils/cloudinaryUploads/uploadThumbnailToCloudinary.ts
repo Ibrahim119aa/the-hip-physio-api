@@ -90,16 +90,14 @@ import ErrorHandler from "../errorHandlerClass";
 
 export type UploadThumbResult = { url: string; publicId: string };
 
-export const uploadExerciseThumbnailToCloudinary = async (
-  file: Express.Multer.File
-): Promise<UploadThumbResult> => {
+export const uploadThumbnailToCloudinary = async ( file: Express.Multer.File, subfolder: string ): Promise<UploadThumbResult> => {
   if (!file) throw new ErrorHandler(400, "No image file provided");
   if (!file.mimetype?.startsWith("image/")) throw new ErrorHandler(400, "File must be an image");
   if (file.size > 10 * 1024 * 1024) throw new ErrorHandler(400, "Image file size must be less than 10MB");
 
   const options = {
     resource_type: "image" as const,
-    folder: "hip-physio/exercises/thumbnails",
+    folder: `hip-physio/${subfolder}/thumbnails`,
     transformation: [{ crop: "scale", quality: "auto" }],
   };
 
