@@ -39,17 +39,18 @@ export const addEducationalVideoHandler = async (
   let thumbWasUploaded = false;
 
   try {
-    const parsed = createEducationalVideoSchema.safeParse(req.body);
-    if (!parsed.success) {
-      const msg = parsed.error.issues.map(i => i.message).join(", ");
-      throw new ErrorHandler(400, msg);
+    const parsedBody = createEducationalVideoSchema.safeParse(req.body);
+  
+    if(!parsedBody.success) {
+      const errorMessages= parsedBody.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMessages);
     }
-
+    
     if (!videoFile) throw new ErrorHandler(400, "Video file is required");
 
     // Duplicate title (case-insensitive)
     const exists = await EducationalVideoModel.findOne({
-      title: { $regex: new RegExp(`^${parsed.data.title}$`, "i") },
+      title: { $regex: new RegExp(`^${parsedBody.data.title}$`, "i") },
     }).session(session);
     if (exists) throw new ErrorHandler(409, "A video with this title already exists");
 
@@ -66,15 +67,15 @@ export const addEducationalVideoHandler = async (
     const thumbnailUrl = uploadedThumb
       ? uploadedThumb.url
       : uploadedVideo.url.replace("/upload/", "/upload/so_2/").replace(".mp4", ".jpg");
-    console.log('categories ++++++++++', parsed.data.categories);
+    console.log('categories ++++++++++', parsedBody.data.categories);
     
     const doc = new EducationalVideoModel({
-      title: parsed.data.title,
-      description: parsed.data.description,
+      title: parsedBody.data.title,
+      description: parsedBody.data.description,
       videoUrl: uploadedVideo.url,
       thumbnailUrl,
       duration: uploadedVideo.duration,
-      categories: parsed.data.categories,
+      categories: parsedBody.data.categories,
       // createdBy: req.adminId, // uncomment if you add this field in schema
     });
 
@@ -118,10 +119,10 @@ export const updateEducationalVideoHandler = async (
   session.startTransaction();
 
   const files = req.files as { [k: string]: Express.Multer.File[] } | undefined;
-  const incomingVideoFile: Express.Multer.File | undefined =
-    (req as any).videoFile ?? files?.video?.[0];
-  const incomingThumbFile: Express.Multer.File | undefined =
-    (req as any).thumbnailFile ?? files?.thumbnail?.[0];
+
+  const incomingVideoFile: Express.Multer.File | undefined =   (req as any).videoFile ?? files?.video?.[0];
+
+  const incomingThumbFile: Express.Multer.File | undefined =  (req as any).thumbnailFile ?? files?.thumbnail?.[0];
 
   const videoTempPath = (incomingVideoFile as any)?.path as string | undefined;
   const thumbTempPath = (incomingThumbFile as any)?.path as string | undefined;
@@ -132,14 +133,17 @@ export const updateEducationalVideoHandler = async (
   try {
     // validate params & body (your simple sanitized schemas)
     const parsedParams = EducationalVideoParamsSchema.safeParse(req.params);
+
     if (!parsedParams.success) {
-      const message = parsedParams.error.issues.map(i => i.message).join(", ");
-      throw new ErrorHandler(400, message);
+      const errorMessages = parsedParams.error.issues.map((issue) => issue.message).join(", ")
+      throw new ErrorHandler(400, errorMessages);
     }
+    
     const parsedBody = updateEducationalVideoSchema.safeParse(req.body);
-    if (!parsedBody.success) {
-      const message = parsedBody.error.issues.map(i => i.message).join(", ");
-      throw new ErrorHandler(400, message);
+    
+    if(!parsedBody.success) {
+      const errorMessages= parsedBody.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMessages);
     }
 
     const { id } = parsedParams.data as any;
@@ -154,6 +158,7 @@ export const updateEducationalVideoHandler = async (
         _id: { $ne: existing._id },
         title: { $regex: new RegExp(`^${updatePayload.title}$`, "i") },
       }).session(session);
+      
       if (duplicate) throw new ErrorHandler(409, "A video with this title already exists");
     }
 
@@ -255,9 +260,10 @@ export const deleteEducationalVideoHandler = async (
 
   try {
     const parsedParams = EducationalVideoParamsSchema.safeParse(req.params);
+    
     if (!parsedParams.success) {
-      const msg = parsedParams.error.issues.map(i => i.message).join(", ");
-      throw new ErrorHandler(400, msg);
+      const errorMessages= parsedParams.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMessages);
     }
 
     const { id } = parsedParams.data;

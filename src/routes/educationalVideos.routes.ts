@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createEducationalVideoCategoryHandler, getAllEducationalVideoCategoriesHandler } from "../controllers/educationalVideosCategory.controllers";
+import { createEducationalVideoCategoryHandler, deleteEducationalVideoCategoryHandler, getAllEducationalVideoCategoriesHandler, updateEducationalVideoCategoryHandler } from "../controllers/educationalVideosCategory.controllers";
 import { addEducationalVideoHandler, deleteEducationalVideoHandler, getAllEducationalVideosHandler, updateEducationalVideoHandler } from "../controllers/educationalVideos.controllers";
 import { uploadVideoAndThumbnail, validateVideoUpload } from "../middlewares/upload.middleware";
 import { isAdminAuthenticated } from "../middlewares/isAuthenticated.middleware";
@@ -17,6 +17,11 @@ router.route("/:id")
 router.route("/category")
   .post(isAdminAuthenticated, createEducationalVideoCategoryHandler)
   .get(getAllEducationalVideoCategoriesHandler);
+
+  router.route("/category/:id")  
+  .put(isAdminAuthenticated, updateEducationalVideoCategoryHandler)
+  .delete(isAdminAuthenticated, deleteEducationalVideoCategoryHandler);
+
 
 
 export default router;
