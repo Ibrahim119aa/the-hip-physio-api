@@ -345,10 +345,9 @@ const oid = (v: any) => (typeof v === "string" ? v : (v as mongoose.Types.Object
 
 
 // @route GET /api/user-progress/user-status/:planId/userId
-export const getPlanProgressStatus = async (req: Request, res: Response) => {
+export const getUserPlanProgress = async (req: Request, res: Response) => {
   try {
     const { planId, userId } = req.params;
-    // const userId = req.userId;
     
     if (!userId) {
       return res.status(400).json({ success: false, message: "userId required" });
@@ -801,7 +800,6 @@ export const   getUserStreakAndPgoressHanlder = async (
       .populate({
         path: "completedExercises.exerciseId",
         model: "Exercise",
-        select: "_id", // only need _id
       })
       .lean<any>();
 

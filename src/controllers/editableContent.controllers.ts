@@ -13,23 +13,9 @@ export async function createContentHandler(req: Request, res: Response, next: Ne
   
     if (!ALLOWED_SLUGS.has(slug)) throw new ErrorHandler(400, "Invalid slug");
   
-    // const existing = await ContentPage.findOne({ slug });
-    // if (existing) {
-    //   return res.status(409).json({ error: "Content already exists" });
-    // }
-  
-    // const parsed = contentPageUpsertSchema.safeParse(req.body);
-    // if (!parsed.success) {
-    //   return res.status(422).json({ error: parsed.error.flatten() });
-    // }
-  
-    // const { title, html } = parsed.data;
-    // const sanitizedHtml = sanitizeHtmlUnsafe(html);
-  
     const doc = await EditableContentModel.create({
       slug,
       title,
-      // html: sanitizedHtml,
       contentHtml: html,
       updatedBy: userId,
     });
@@ -51,7 +37,7 @@ export const updateContentHandler = async(req: Request, res: Response, next: Nex
     const { slug } = req.params;
     const { title, contentHtml } = req.body;
     const userId = req.userId;
-    console.log('req.body', req.body)
+    
     if (!ALLOWED_SLUGS.has(slug)) throw new ErrorHandler(400, "Invalid slug");
 
     if (typeof contentHtml !== "string" || contentHtml.trim() === "") throw new ErrorHandler(400, "contentHtml is required") 
@@ -140,17 +126,3 @@ export const getAllContentHandler = async(req: Request, res: Response, next: Nex
     next(error)
   }
 }
-
-// export async function listContent(req: Request, res: Response, next: NextFunction) {
-//   try {
-//     const items = await EditableContentModel.find({ slug: { $in: Array.from(ALLOWED_SLUGS) } })
-//       .select("slug title updatedAt")
-//       .sort({ slug: 1 })
-//       .lean();
-//     res.json(items);
-    
-//   } catch (error) {
-//     console.error("Error fetching content:", error)
-//     next(error);
-//   }
-// }
