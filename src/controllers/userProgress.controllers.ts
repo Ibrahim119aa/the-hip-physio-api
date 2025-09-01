@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import { buildCompletionRecord } from "../utils/timezone";
 import { DateTime } from "luxon";
 import { CompleteExerciseSchema, MarkSessionCompleteSchema, TCompleteExerciseRequest, TMarkSessionCompleteRequest } from "../validationSchemas/userProgress.schema";
-import { ProgressDay, ProgressSession, ProgressWeek } from "../types/progress.types";
+import { ProgressDay, ProgressSession, ProgressStatus, ProgressWeek } from "../types/progress.types";
 
 export const markExerciseCompleteHandler = async (
   req: Request<{}, {}, TCompleteExerciseRequest>, 
