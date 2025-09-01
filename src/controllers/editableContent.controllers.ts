@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import ErrorHandler from "../utils/errorHandlerClass";
 import { EditableContentModel } from "../models/editableContent.model";
 
-const ALLOWED_SLUGS = new Set(["privacy-policy", "terms-and-conditions", "help-faqs"]);
+const ALLOWED_SLUGS = new Set(["privacy-policy", "terms-and-conditions", "help-faqs", "about-us"]);
 
 export async function createContentHandler(req: Request, res: Response, next: NextFunction) {
   try {

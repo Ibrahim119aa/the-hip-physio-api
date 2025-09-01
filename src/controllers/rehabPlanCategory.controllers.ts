@@ -1,31 +1,31 @@
 import { NextFunction, Request, Response } from "express";
-import ExerciseCategoryModel from "../models/exerciseCategory.model";
-import { ExerciseCategoryParamsSchema, exerciseCategorySchema, ExerciseCategoryUpdateSchema, TExerciseCategoryRequest, TExerciseCategoryUpdateRequest } from "../validationSchemas/exerciseCategory.schema";
 import ErrorHandler from "../utils/errorHandlerClass";
-import { TExerciseParams } from "../validationSchemas/excercise.schema";
+import { TRehabPlanCategory } from "../types/rehaplanCategory.types";
+import { rehabPlanCategoryParamsSchema, rehabPlanCategorySchema, TRehabPlanCategoryParamRequest, TRehabPlanCategoryUpdateRequest } from "../validationSchemas/rehabPlabCategory.schema";
+import RehabPlanCategoryModel from "../models/rehabPlanCategory.model";
 
 // Add a category
-export const addExerciseCategoryHandler = async (
-  req: Request<{}, {}, TExerciseCategoryRequest>, 
+export const addRehabPlanCategoryHandler = async (
+  req: Request<{}, {}, TRehabPlanCategory>, 
   res: Response, 
   next: NextFunction
 ) => {
   try {
-    const parsed = exerciseCategorySchema.safeParse(req.body);
+    const parsed = rehabPlanCategorySchema.safeParse(req.body);
 
     if (!parsed.success) {
-      const errorMessages = parsed.error.issues.map(issue => issue.message).join(', ');
+      const errorMessages = parsed.error.issues.map((issue: any) => issue.message).join(', ');
       throw new ErrorHandler(400, errorMessages);
     }
 
     const { title, description } = parsed.data
-    const existingCategory = await ExerciseCategoryModel.findOne({ 
+    const existingCategory = await RehabPlanCategoryModel.findOne({ 
       title: { $regex: new RegExp(`^${title}$`, 'i') } 
     });
 
     if(existingCategory) throw new ErrorHandler(409,'Exercise category already exists');
     
-    const newCategory = new ExerciseCategoryModel({ title, description });
+    const newCategory = new RehabPlanCategoryModel({ title, description });
     await newCategory.save();
 
     res.status(201).json({
@@ -40,22 +40,22 @@ export const addExerciseCategoryHandler = async (
 }
 
 // delete category
-export const deleteExerciseCategoryHandler = async ( 
-  req: Request<TExerciseParams, {}, {}>,
+export const deleteRehabPlanCategoryHandler = async ( 
+  req: Request<TRehabPlanCategoryParamRequest, {}, {}>,
   res: Response, 
   next: NextFunction
 ) => {
   try {
     
-    const parsedParams = ExerciseCategoryParamsSchema.safeParse(req.params);
+    const parsedParams = rehabPlanCategoryParamsSchema.safeParse(req.params);
     if (!parsedParams.success) {
-      const errorMessages = parsedParams.error.issues.map(issue => issue.message).join(', ');
+      const errorMessages = parsedParams.error.issues.map((issue: any) => issue.message).join(', ');
       throw new ErrorHandler(400, errorMessages);
     }
 
     const { id } = parsedParams.data;
 
-    const category = await ExerciseCategoryModel.findByIdAndDelete(id);
+    const category = await RehabPlanCategoryModel.findByIdAndDelete(id);
     if (!category) throw new ErrorHandler(404, 'Exercise category not found');
     
     res.status(200).json({
@@ -70,15 +70,15 @@ export const deleteExerciseCategoryHandler = async (
 }
 
 // update category
-export const updateExerciseCategoryHandler = async (
-  req: Request<TExerciseParams, {}, TExerciseCategoryUpdateRequest>,
+export const updateRehabPlanCategoryHandler = async (
+  req: Request<TRehabPlanCategoryParamRequest, {}, TRehabPlanCategoryUpdateRequest>,
   res: Response,
   next: NextFunction
 ) => {
   try {
 
-    const parsedParams = ExerciseCategoryParamsSchema.safeParse(req.params);
-    const parsedBody = ExerciseCategoryUpdateSchema.safeParse(req.body);
+    const parsedParams = rehabPlanCategoryParamsSchema.safeParse(req.params);
+    const parsedBody = rehabPlanCategorySchema.safeParse(req.body);
     
     if (!parsedParams.success) {
       const errorMessages = parsedParams.error.issues.map(issue => issue.message).join(', ');
@@ -93,14 +93,14 @@ export const updateExerciseCategoryHandler = async (
     const { id } = parsedParams.data;
     const updateData = parsedBody.data;
 
-   const categoryToUpdate = await ExerciseCategoryModel.findById(id);
+   const categoryToUpdate = await RehabPlanCategoryModel.findById(id);
     if (!categoryToUpdate) {
       throw new ErrorHandler(404, 'Exercise category not found');
     }
 
     if (updateData.title) {
       // Check if another category (excluding the current one) already has this title (case-insensitive)
-      const existingCategory = await ExerciseCategoryModel.findOne({
+      const existingCategory = await RehabPlanCategoryModel.findOne({
         _id: { $ne: id }, // Ignore the current category we're updating
         title: { $regex: new RegExp(`^${updateData.title}$`, 'i') } // Exact match, case-insensitive
       });
@@ -111,7 +111,7 @@ export const updateExerciseCategoryHandler = async (
     }
 
     // Perform the update (only updates provided fields)
-    const updatedCategory = await ExerciseCategoryModel.findByIdAndUpdate(
+    const updatedCategory = await RehabPlanCategoryModel.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
@@ -130,9 +130,9 @@ export const updateExerciseCategoryHandler = async (
 }
 
 // Get all categories
-export const getAllCategoriesHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllRehabPlabCategoriesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const categories = await ExerciseCategoryModel.find();
+    const categories = await RehabPlanCategoryModel.find();
     
     if (!categories || categories.length === 0) {
       throw new ErrorHandler(404, 'No exercise categories found');
@@ -141,7 +141,7 @@ export const getAllCategoriesHandler = async (req: Request, res: Response, next:
     res.status(200).json({
       success: true,
       message: 'Categories fetched successfully',
-      data: categories
+      categories
     });
 
   } catch (error) {

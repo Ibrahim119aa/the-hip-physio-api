@@ -61,7 +61,7 @@ app.use('/api/rehab-plans', rehabPlanRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/user-progress', userProgressRoutes);
 app.use('/api/educational-videos', educationalVideosRoutes);
-app.use('/api/notification', notificationRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/user-notes', userNoteRoutes)
 app.use('/api/weekly-resilience-checkin', weeklyResilienceCheckinRoutes)
 app.use('/api/editable-content', editableContentRoutes)

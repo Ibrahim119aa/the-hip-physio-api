@@ -315,42 +315,6 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
   }
 }
 
-// Admin role management functions
-export const assignAdminRoleHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { userId } = req.params;
-    const { role } = req.body;
-
-    if (!userId) throw new ErrorHandler(400, 'User ID is required');
-    if (!role || !['user', 'admin'].includes(role)) {
-      throw new ErrorHandler(400, 'Valid role (user or admin) is required');
-    }
-
-    // Find user
-    const user = await UserModel.findById(userId);
-    if (!user) throw new ErrorHandler(404, 'User not found');
-
-    // Update role
-    user.role = role;
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: `User role updated to ${role} successfully`,
-      data: {
-        userId: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-
-  } catch (error) {
-    console.error('assignAdminRoleHandler error', error);
-    next(error);
-  }
-};
-
 export const getUsersHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page = 1, limit = 20, role, status } = req.query;
@@ -386,64 +350,40 @@ export const getUsersHandler = async (req: Request, res: Response, next: NextFun
   }
 };
 
-export const createFirstAdminHandler = async (req: Request, res: Response, next: NextFunction) => {
+// GET /api/users/notifications-picklist?onlyActive=true
+// Returns ALL users (for the picker) with a slim projection.
+export const getUsersForNotificationsHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, name, password } = req.body;
+    const { onlyActive = 'true' } = req.query as Record<string, string>;
+    const returnOnlyActiveUsers = onlyActive === 'true';
 
-    if (!email || !name || !password) {
-      throw new ErrorHandler(400, 'Email, name, and password are required');
-    }
+    const matchCriteria: Record<string, unknown> = {};
+    if (returnOnlyActiveUsers) matchCriteria.status = 'active';
 
-    // Check if any admin already exists
-    const existingAdmin = await UserModel.findOne({ role: 'admin' });
-    if (existingAdmin) {
-      throw new ErrorHandler(409, 'Admin already exists. Cannot create first admin.');
-    }
+    const projectionFields = '_id name email status';
 
-    // Check if user with email already exists
-    const existingUser = await UserModel.findOne({ email });
-    if (existingUser) {
-      throw new ErrorHandler(409, 'User with this email already exists');
-    }
+    const usersForPicklist = await UserModel.find(matchCriteria)
+      .select(projectionFields)
+      .sort({ name: 1, email: 1 })
+      .lean();
 
-    // Create first admin
-    const adminUser = new UserModel({
-      email,
-      name,
-      password,
-      role: 'admin',
-      status: 'active'
-    });
-
-    await adminUser.save();
-
-    // Generate JWT token
-    const token = generateToken({
-      userId: adminUser._id,
-      email: adminUser.email
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'First admin created successfully',
-      token,
-      data: {
-        id: adminUser._id,
-        name: adminUser.name,
-        email: adminUser.email,
-        role: adminUser.role,
-        status: adminUser.status
+      if (!usersForPicklist || usersForPicklist.length === 0) {
+        throw new ErrorHandler(404, 'No users found');
       }
-    });
 
+    return res.status(200).json({
+      success: true,
+      message: 'Users for notifications picklist retrieved successfully',
+      users: usersForPicklist,
+      count: usersForPicklist.length,
+    });
   } catch (error) {
-    console.error('createFirstAdminHandler error', error);
+    console.error('getUsersForNotificationsHandler error', error);
     next(error);
   }
 };
 
 // USER PROFILE HANDLERS
-
 export const getUserProfileHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId;
@@ -481,16 +421,11 @@ export const updateUserProfileHandler = async(
   next: NextFunction
 ) => { 
   try {
-    console.log('req.body', req.body);
-    
     const parsedBody = updateUserSchema.safeParse(req.body);
-    console.log('parsedBody', parsedBody);
     
     const userId = req.userId;
     const file = req.profileImage
-    console.log('image', file);
     
-
     if(!parsedBody.success) {
       const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
       throw new ErrorHandler(400, `${errorMessages.join(', ')}`);
@@ -502,12 +437,8 @@ export const updateUserProfileHandler = async(
 
     if (!user) throw new ErrorHandler(404, 'User not found');
 
-    if(file) {
-      console.log('run inside file block');
-      
+    if(file) { 
       const uploadImage = uploadProfileImageToCloudinary(file);
-      console.log('uploadImage', uploadImage);
-      
       user.profile_photo = await uploadImage;
     }
 

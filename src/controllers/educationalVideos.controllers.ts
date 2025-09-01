@@ -1,199 +1,318 @@
 import mongoose from "mongoose";
 import EducationalVideoModel from "../models/educationalVideo.model";
 import { Request, Response, NextFunction} from 'express';
-import { educationVideoSchema, TEducationVideoRequest } from "../validationSchemas/educationalVideo.schema";
+import { createEducationalVideoSchema, EducationalVideoParamsSchema, TCreateEducationalVideoRequest,  TEduVideoParams, TUpdateEducationalVideoRequest, updateEducationalVideoSchema } from "../validationSchemas/educationalVideo.schema";
 import ErrorHandler from "../utils/errorHandlerClass";
-import { uploadEducatioanlVideoToCloudinary } from "../utils/cloudinaryUploads/uploadEducatioanlVideoToCloudinary";
-import { uploadEducationalThumbnailToCloudinary } from "../utils/cloudinaryUploads/uploadEducationalThumbnailToCloudinary";
 import { extractPublicIdFromUrl, testPublicIdExtraction } from "../utils/cloudinaryUploads/extractPublicIdFromUrl";
 import { deleteFromCloudinary } from "../utils/cloudinaryUploads/deleteFromCloudinary";
-import { uploadVideo } from "../utils/cloudinaryUploads/uploadVideo";
+import { uploadVideoToCloudinary } from "../utils/cloudinaryUploads/uploadVideoToCloudinary";
+import fs from 'fs/promises';
+import z from "zod";
+import { uploadThumbnailToCloudinary } from "../utils/cloudinaryUploads/uploadThumbnailToCloudinary";
 
-type TUploadedVideoUrl = {
-  url: string;
-  duration: number;
+
+// ---------- Helpers ----------
+const safeUnlink = async (p?: string) => {
+  if (!p) return;
+  try { await fs.unlink(p); } catch { /* ignore */ }
 };
 
-export const createEducationalVideoHandler = async(req: Request<{}, {}, TEducationVideoRequest>, res: Response, next: NextFunction) => {
+
+// CREATE 
+export const addEducationalVideoHandler = async (
+  req: Request<{}, {}, TCreateEducationalVideoRequest>,
+  res: Response,
+  next: NextFunction
+) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
-  let uploadedVideoUrl: TUploadedVideoUrl | null = null;
-  let uploadedThumbnailUrl = '';
+  const files = req.files as { [k: string]: Express.Multer.File[] } | undefined;
+  const videoFile = files?.video?.[0];
+  const thumbFile = files?.thumbnail?.[0];
 
-  try{
-    console.log('req.body', req.body);
-    console.log('req.videoFile', req.files);
-    
-    const parsedBody = educationVideoSchema.safeParse(req.body);
-    
+  const videoTemp = (videoFile as any)?.path as string | undefined;
+  const thumbTemp = (thumbFile as any)?.path as string | undefined;
+
+  let uploadedVideo: { url: string; duration: number; publicId: string } | null = null;
+  let uploadedThumb: { url: string; publicId: string } | null = null;
+  let thumbWasUploaded = false;
+
+  try {
+    const parsedBody = createEducationalVideoSchema.safeParse(req.body);
+  
     if(!parsedBody.success) {
-      const errorMessages = parsedBody.error.issues.map(issue => issue.message).join(', ');
+      const errorMessages= parsedBody.error.issues.map((issue) => issue.message).join(", ");
       throw new ErrorHandler(400, errorMessages);
     }
-
-    // check if video file is provided
-    if(!req.videoFile) {
-      throw new ErrorHandler(400, 'Video file is required');
-    }
-
-    // check if educational video with same title already exist
-    const existingEducationalVideo = await EducationalVideoModel.findOne({
-      title: { $regex: new RegExp(`^${parsedBody.data.title}$`,'i')}
-    }).session(session);
     
-    if(existingEducationalVideo) {
-      throw new ErrorHandler(409, 'Educational video with this title already exists');
+    if (!videoFile) throw new ErrorHandler(400, "Video file is required");
+
+    // Duplicate title (case-insensitive)
+    const exists = await EducationalVideoModel.findOne({
+      title: { $regex: new RegExp(`^${parsedBody.data.title}$`, "i") },
+    }).session(session);
+    if (exists) throw new ErrorHandler(409, "A video with this title already exists");
+
+    // Upload video
+    const subFolder = "educational-videos";
+    uploadedVideo = await uploadVideoToCloudinary(videoFile, subFolder);
+
+    // Optional thumbnail
+    if (thumbFile) {
+      uploadedThumb = await uploadThumbnailToCloudinary(thumbFile, subFolder); // reuse same util
+      thumbWasUploaded = true;
     }
 
-    // upload educational video to cloudinary
-    uploadedVideoUrl = await uploadEducatioanlVideoToCloudinary(req.videoFile);
-    console.log('video uploaded successfully');
-
-    // Upload thumbnail if provided, otherwise generate from video
-    if (req.thumbnailFile) {
-      uploadedThumbnailUrl = await uploadEducationalThumbnailToCloudinary(req.thumbnailFile);
-    } else {
-      // Generate thumbnail from video 
-      uploadedThumbnailUrl = uploadedVideoUrl.url
-        .replace('/upload/', '/upload/so_2/')
-        .replace('.mp4', '.jpg');
-      // uploadedThumbnailUrl = uploadedVideoUrl.url.replace('.mp4', '_thumb.jpg'); // Placeholder
-    }
-
-    const newEducationalVideo = new EducationalVideoModel({
+    const thumbnailUrl = uploadedThumb
+      ? uploadedThumb.url
+      : uploadedVideo.url.replace("/upload/", "/upload/so_2/").replace(".mp4", ".jpg");
+    console.log('categories ++++++++++', parsedBody.data.categories);
+    
+    const doc = new EducationalVideoModel({
       title: parsedBody.data.title,
       description: parsedBody.data.description,
-      category: new mongoose.Types.ObjectId(parsedBody.data.category),
-      videoUrl: uploadedVideoUrl.url,
-      thumbnailUrl: uploadedThumbnailUrl,
-      estimatedDuration: uploadedVideoUrl.duration
+      videoUrl: uploadedVideo.url,
+      thumbnailUrl,
+      duration: uploadedVideo.duration,
+      categories: parsedBody.data.categories,
+      // createdBy: req.adminId, // uncomment if you add this field in schema
     });
 
-    // console.log('api called');
-    // console.log('body', req.body);
-    // const {
-    //   title,
-    //   duration,
-    //   description,
-    //   categories
-    // } = req.body 
- 
-    // const newEducationalVideo = new EducationalVideoModel({
-    //   title,
-    //   duration,
-    //   description,
-    //   categories,
-    //   videoUrl: "https://res.cloudinary.com/daoktsoq3/video/upload/v1754332742/hip-physio/exercises/videos/tfgtb3xbewifvnbjy26o.mp4",
-    //   thumbnailUrl: "https://res.cloudinary.com/daoktsoq3/image/upload/v1754332774/hip-physio/exercises/thumbnails/i2nchtmmbce1u8or15b5.jpg"
-    // })
-
-    await newEducationalVideo.save();
-    
+    await doc.save({ session });
     await session.commitTransaction();
 
     res.status(201).json({
       success: true,
-      data: newEducationalVideo,
-      message: 'educational video uploaded successfully'
-    })
-
-  } catch(error) {
-    console.error('createEducationalVideoHandler Error:', error);
+      message: "Educational video added successfully",
+      data: doc,
+    });
+  } catch (error) {
     await session.abortTransaction();
+    console.error( "addEducationalVideoHandler error (after rollback attempt):", error)
 
-    // Clean up uploaded files if any files were uploaded (regardless of error type)
-    if (uploadedVideoUrl || uploadedThumbnailUrl) {
-      console.log('Cleaning up uploaded files due to error...');
-      
-      // Test public ID extraction
-      console.log('Testing public ID extraction:');
-      testPublicIdExtraction();
-      
-      try {
-        // Always clean up video file if it was uploaded
-        if (uploadedVideoUrl) {
-          console.log('Attempting to clean up video file:', uploadedVideoUrl);
-          const videoPublicId = extractPublicIdFromUrl(uploadedVideoUrl.url);
-          if (videoPublicId) {
-            await deleteFromCloudinary(videoPublicId, 'video');
-            console.log('Successfully cleaned up video file');
-          } else {
-            console.log('Could not extract public ID from video URL');
-          }
-        }
-        
-        // Clean up thumbnail file if it was uploaded (not a placeholder)
-        if (uploadedThumbnailUrl && uploadedThumbnailUrl !== uploadedVideoUrl?.url.replace('.mp4', '_thumb.jpg')) {
-          console.log('Attempting to clean up thumbnail file:', uploadedThumbnailUrl);
-          const thumbnailPublicId = extractPublicIdFromUrl(uploadedThumbnailUrl);
-          if (thumbnailPublicId) {
-            await deleteFromCloudinary(thumbnailPublicId, 'image');
-            console.log('Successfully cleaned up thumbnail file');
-          } else {
-            console.log('Could not extract public ID from thumbnail URL');
-          }
-        }
-      } catch (cleanupError) {
-        console.error('Error cleaning up files:', cleanupError);
-        // Don't throw cleanup errors as they're not critical
+    // Cloudinary rollback
+    try {
+      if (uploadedVideo?.publicId) await deleteFromCloudinary(uploadedVideo.publicId, "video");
+      if (thumbWasUploaded && uploadedThumb?.publicId) {
+        await deleteFromCloudinary(uploadedThumb.publicId, "image");
       }
-    } else {
-      console.log('No files to clean up');
-    }
-        
-    next(error)
+    } catch { /* ignore */ }
+
+    next(error);
+  } finally {
+    session.endSession();
+    await Promise.all([safeUnlink(videoTemp), safeUnlink(thumbTemp)]);
   }
-}
+};
 
-// export const deleteEducationalVideoHandler = async (req: Request, res: Response, next: NextFunction) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
+// UPDATE 
+type UploadVideoResult = { url: string; duration: number; publicId: string };
+type UploadThumbResult = { url: string; publicId: string };
 
-//   try {
-//     const { id } = req.params;
+export const updateEducationalVideoHandler = async (
+  req: Request<z.infer<typeof EducationalVideoParamsSchema>, {}, z.infer<typeof updateEducationalVideoSchema>>,
+  res: Response,
+  next: NextFunction
+) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-//     if (!id) throw new ErrorHandler(400, 'Educational video ID is required');
+  const files = req.files as { [k: string]: Express.Multer.File[] } | undefined;
 
-//     const educationalVideo = await EducationalVideoModel.findById(id).session(session);
-//     if (!educationalVideo) throw new ErrorHandler(404, 'Educational video not found');
+  const incomingVideoFile: Express.Multer.File | undefined =   (req as any).videoFile ?? files?.video?.[0];
 
-//     // Delete associated Cloudinary resources
-//     const deletePromises: Promise<any>[] = [];
+  const incomingThumbFile: Express.Multer.File | undefined =  (req as any).thumbnailFile ?? files?.thumbnail?.[0];
 
-//     if (educationalVideo.videoUrl) {
-//       const videoPublicId = extractPublicIdFromUrl(educationalVideo.videoUrl);
-//       if (videoPublicId) {
-//         deletePromises.push(deleteFromCloudinary(videoPublicId, 'video'));
-//       }
-//     }
+  const videoTempPath = (incomingVideoFile as any)?.path as string | undefined;
+  const thumbTempPath = (incomingThumbFile as any)?.path as string | undefined;
 
-//     if (educationalVideo.thumbnailUrl) {
-//       const thumbnailPublicId = extractPublicIdFromUrl(educationalVideo.thumbnailUrl);
-//       if (thumbnailPublicId) {
-//         deletePromises.push(deleteFromCloudinary(thumbnailPublicId, 'image'));
-//       }
-//     }
+  let newVideo: UploadVideoResult | null = null;
+  let newThumb: UploadThumbResult | null = null;
 
-//     await Promise.all(deletePromises);
+  try {
+    // validate params & body (your simple sanitized schemas)
+    const parsedParams = EducationalVideoParamsSchema.safeParse(req.params);
 
-//     await EducationalVideoModel.findByIdAndDelete(id).session(session);
+    if (!parsedParams.success) {
+      const errorMessages = parsedParams.error.issues.map((issue) => issue.message).join(", ")
+      throw new ErrorHandler(400, errorMessages);
+    }
+    
+    const parsedBody = updateEducationalVideoSchema.safeParse(req.body);
+    
+    if(!parsedBody.success) {
+      const errorMessages= parsedBody.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMessages);
+    }
 
-//     await session.commitTransaction();
+    const { id } = parsedParams.data as any;
+    const updatePayload = parsedBody.data as any;
 
-//     res.status(200).json({
-//       success: true,
-//       message: 'Educational video deleted successfully'
-//     });
+    const existing = await EducationalVideoModel.findById(id).session(session);
+    if (!existing) throw new ErrorHandler(404, "Educational video not found");
 
-//   } catch (error) {
-//     console.error('deleteEducationalVideoHandler error', error);
-//     await session.abortTransaction();
-//     next(error);
-//   } finally {
-//     session.endSession();
-//   }
-// };
+    // Duplicate title check (case-insensitive) if title changed
+    if (updatePayload.title && updatePayload.title.trim().toLowerCase() !== existing.title.trim().toLowerCase()) {
+      const duplicate = await EducationalVideoModel.findOne({
+        _id: { $ne: existing._id },
+        title: { $regex: new RegExp(`^${updatePayload.title}$`, "i") },
+      }).session(session);
+      
+      if (duplicate) throw new ErrorHandler(409, "A video with this title already exists");
+    }
+
+    // 1) Upload new assets first (optional on PUT)
+    const subFolder = "educational-videos";
+    if (incomingVideoFile) newVideo = await uploadVideoToCloudinary(incomingVideoFile, subFolder);
+    if (incomingThumbFile) newThumb = await uploadThumbnailToCloudinary(incomingThumbFile, subFolder);
+
+    // 2) Build patch
+    const patch: any = { ...updatePayload };
+
+    // categories to ObjectIds if provided
+    if (updatePayload.categories !== undefined) {
+      patch.categories = updatePayload.categories;
+    }
+
+    if (newVideo) {
+      patch.videoUrl = newVideo.url;
+      patch.duration = newVideo.duration;
+
+      const payloadHasThumbUrl =
+        typeof updatePayload.thumbnailUrl === "string" && updatePayload.thumbnailUrl.trim().length > 0;
+
+      if (!newThumb && !payloadHasThumbUrl && !existing.thumbnailUrl) {
+        patch.thumbnailUrl = newVideo.url
+          .replace("/upload/", "/upload/so_2/")
+          .replace(".mp4", ".jpg");
+      }
+    }
+
+    if (newThumb) {
+      patch.thumbnailUrl = newThumb.url;
+    }
+
+    const updated = await EducationalVideoModel.findByIdAndUpdate(
+      id,
+      patch,
+      { new: true, runValidators: true, session }
+    );
+    if (!updated) throw new ErrorHandler(404, "Educational video not updated");
+
+    await session.commitTransaction();
+
+    // 3) Post-commit cleanup
+    (async () => {
+      try {
+        if (newVideo && existing.videoUrl) {
+          const oldVideoPublicId = extractPublicIdFromUrl(existing.videoUrl);
+          if (oldVideoPublicId) await deleteFromCloudinary(oldVideoPublicId, "video");
+        }
+
+        const payloadThumbnailChanged =
+          typeof updatePayload.thumbnailUrl === "string" &&
+          updatePayload.thumbnailUrl.trim().length > 0 &&
+          updatePayload.thumbnailUrl !== existing.thumbnailUrl;
+
+        const thumbnailWasReplaced = !!newThumb || payloadThumbnailChanged;
+        if (thumbnailWasReplaced && existing.thumbnailUrl) {
+          const oldThumbPublicId = extractPublicIdFromUrl(existing.thumbnailUrl);
+          if (oldThumbPublicId) await deleteFromCloudinary(oldThumbPublicId, "image");
+        }
+      } catch (cleanupErr) {
+        console.error("educational video post-commit cleanup failed (ignored):", cleanupErr);
+      }
+    })();
+
+    res.status(200).json({
+      success: true,
+      message: "Educational video updated successfully",
+      data: updated,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    
+    try {
+      if (newVideo?.publicId) await deleteFromCloudinary(newVideo.publicId, "video");
+      if (newThumb?.publicId) await deleteFromCloudinary(newThumb.publicId, "image");
+    } catch (rollbackErr) {
+      console.error("educational video rollback cleanup failed (ignored):", rollbackErr);
+    }
+    
+    console.error("updateEducationalVideoHandler error (after rollback attempt):", error);
+    next(error);
+  } finally {
+    session.endSession();
+    await Promise.all([safeUnlink(videoTempPath), safeUnlink(thumbTempPath)]);
+  }
+};
+
+
+// DELETE 
+export const deleteEducationalVideoHandler = async (
+  req: Request<TEduVideoParams, {}, {}>,
+  res: Response,
+  next: NextFunction
+) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const parsedParams = EducationalVideoParamsSchema.safeParse(req.params);
+    
+    if (!parsedParams.success) {
+      const errorMessages= parsedParams.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMessages);
+    }
+
+    const { id } = parsedParams.data;
+
+    const videoDoc = await EducationalVideoModel.findById(id).session(session);
+    if (!videoDoc) throw new ErrorHandler(404, "Educational video not found");
+
+    // Pre-compute public IDs for cleanup
+    const publicIdsToDelete: Array<{ id: string; type: "video" | "image" }> = [];
+
+    if (videoDoc.videoUrl) {
+      const vId = extractPublicIdFromUrl(videoDoc.videoUrl);
+      if (vId) publicIdsToDelete.push({ id: vId, type: "video" });
+    }
+
+    if (videoDoc.thumbnailUrl) {
+      const isAutoDerived = videoDoc.thumbnailUrl.includes("/upload/so_");
+      if (!isAutoDerived) {
+        const tId = extractPublicIdFromUrl(videoDoc.thumbnailUrl);
+        if (tId) publicIdsToDelete.push({ id: tId, type: "image" });
+      }
+    }
+
+    const deleted = await EducationalVideoModel.findByIdAndDelete(id).session(session);
+    if (!deleted) throw new ErrorHandler(500, "Educational video deletion failed");
+
+    await session.commitTransaction();
+
+    (async () => {
+      try {
+        await Promise.all(
+          publicIdsToDelete.map(({ id: pubId, type }) => deleteFromCloudinary(pubId, type))
+        );
+      } catch { /* ignore */ }
+    })();
+
+    res.status(200).json({
+      success: true,
+      message: "Educational video deleted successfully",
+    });
+  } catch (error) {
+    console.error("deleteEducationalVideoHandler error:", error);
+    await session.abortTransaction();
+    next(error);
+  } finally {
+    session.endSession();
+  }
+};
+
 
 // Get all educational videos
 export const getAllEducationalVideosHandler = async (req: Request, res: Response, next: NextFunction) => {
@@ -215,22 +334,3 @@ export const getAllEducationalVideosHandler = async (req: Request, res: Response
     next(error);
   }
 };
-
-// example handler for videos
-export async function uploadVideoHandler(req: Request, res: Response) {
-  try {
-    if (!req.file?.buffer) {
-      return res.status(400).json({ message: "No video file provided" });
-    }
-
-    const uploaded = await uploadVideo(req.file.buffer, {
-      folder: "hip-physio/educational/videos",
-      context: { originalname: req.file.originalname },
-    });
-
-    res.status(201).json({ message: "Video uploaded", ...uploaded });
-  } catch (err: any) {
-    console.error("Cloudinary upload error:", err);
-    res.status(500).json({ message: "Upload failed", error: err.message });
-  }
-}

@@ -1,31 +1,8 @@
 import multer from 'multer';
 import { Request, Response, NextFunction } from 'express';
 import ErrorHandler from '../utils/errorHandlerClass';
-
-// Configure multer for memory storage
-const storage = multer.memoryStorage();
-
-// // File filter function
-// const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-//   console.log('Processing file:', file.fieldname, file.mimetype);
-  
-//   // Check file type based on field name
-//   if (file.fieldname === 'video') {
-//     if (!file.mimetype.startsWith('video/')) {
-//       return cb(new ErrorHandler(400, 'Only video files are allowed for video upload'));
-//     }
-//   } else if (file.fieldname === 'thumbnail') {
-//     if (!file.mimetype.startsWith('image/')) {
-//       return cb(new ErrorHandler(400, 'Only image files are allowed for thumbnail upload'));
-//     }
-//   } else {
-//     // Log unexpected field names for debugging
-//     console.log('Unexpected field name:', file.fieldname);
-//     return cb(new ErrorHandler(400, `Unexpected field name: ${file.fieldname}. Expected fields are 'video' and 'thumbnail'`));
-//   }
-
-//   cb(null, true);
-// };
+import fs from "fs";
+import path from 'path';
 
 const fileFilter = ( req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback ) => {
   console.log('Processing file:', file.fieldname, file.mimetype);
@@ -50,15 +27,26 @@ const fileFilter = ( req: Request, file: Express.Multer.File, cb: multer.FileFil
   cb(null, true);
 };
 
-// Configure multer
+const uploadsDir = path.join(process.cwd(), "uploads/tmp");
+
+fs.mkdirSync(uploadsDir, { recursive: true });
+
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
+  }),
+  fileFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max file size
-    files: 2 // Max 2 files (video + thumbnail)
-  }
+    fileSize: 2 * 1024 * 1024 * 1024, // up to 2 GB
+    files: 2,
+  },
 });
+
+export const uploadVideoAndThumbnail = upload.fields([
+  { name: "video", maxCount: 1 },
+  { name: "thumbnail", maxCount: 1 },
+]);
 
 // Middleware for single video upload
 export const uploadVideo = upload.single('video');
@@ -70,43 +58,11 @@ export const uploadImage = upload.single('thumbnail');
 export const uploadProfileImage = upload.single('profileImage');
 
 
-// Middleware for both video and thumbnail upload
-export const uploadVideoAndThumbnail = upload.fields([
-  { name: 'video', maxCount: 1 },
-  { name: 'thumbnail', maxCount: 1 }
-]);
-
-// Error handling middleware for multer
-export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Multer error:', error);
-  
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return next(new ErrorHandler(400, 'File size too large. Maximum size is 100MB'));
-    }
-    if (error.code === 'LIMIT_FILE_COUNT') {
-      console.error('File count exceeded. Received files:', req.files);
-      return next(new ErrorHandler(400, 'Too many files uploaded. Please send only one video file and one thumbnail file.'));
-    }
-    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-      console.error('Unexpected file field:', error.field);
-      return next(new ErrorHandler(400, `Unexpected file field: ${error.field}. Expected fields are 'video' and 'thumbnail'`));
-    }
-    return next(new ErrorHandler(400, `File upload error: ${error.message}`));
-  }
-
-  if (error instanceof ErrorHandler) {
-    return next(error);
-  }
-
-  return next(new ErrorHandler(500, 'File upload failed'));
-};
-
 // Validation middleware for exercise uploads
-export const validateExerciseVideoUpload = (req: Request, res: Response, next: NextFunction) => {
+export const validateVideoUpload = (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log('Received files:', req.files);
-    console.log('Request body:', req.body);
+    console.log('Received files inside video middleware :', req.files);
+    console.log('Request body inside video middleware :', req.body);
     
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     

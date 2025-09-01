@@ -1,26 +1,44 @@
 import { z } from "zod";
 import domPurify from "../config/domPurifyInstance";
 
-export const educationVideoSchema = z.object({
+
+export const EducationalVideoParamsSchema = z.object({
+  id: z.string()
+    .min(1, { message: "ID is required" })
+    .transform((value) => domPurify.sanitize(value.trim())),
+});
+
+export const createEducationalVideoSchema = z.object({
   title: z.string()
     .min(1, "Title is required")
     .max(100, "Title cannot exceed 100 characters")
-    .transform(value => domPurify.sanitize(value.trim())),
-
+    .transform((value) => domPurify.sanitize(value.trim())),
   description: z.string()
     .min(1, "Description is required")
     .max(500, "Description cannot exceed 500 characters")
-    .transform(value => domPurify.sanitize(value.trim())),
-
-  category: z.string()
-    .min(1, "Category is required")
-    .transform(value => domPurify.sanitize(value.trim())),
-
-  tags: z.array(
-    z.string()
-      .min(1, "Tag cannot be empty")
-      .transform(value => domPurify.sanitize(value.trim()))
-  ).optional(),
+    .transform((value) => domPurify.sanitize(value.trim())),
+  // categories can be string (csv/json) or string[]
+  categories: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
-export type TEducationVideoRequest = z.infer<typeof educationVideoSchema>;
+export const updateEducationalVideoSchema = z.object({
+  title: z.string()
+    .min(1, "Title is required")
+    .max(100, "Title cannot exceed 100 characters")
+    .transform((value) => domPurify.sanitize(value.trim()))
+    .optional(),
+  description: z.string()
+    .min(1, "Description is required")
+    .max(500, "Description cannot exceed 500 characters")
+    .transform((value) => domPurify.sanitize(value.trim()))
+    .optional(),
+  thumbnailUrl: z.string()
+    .url()
+    .transform((value) => domPurify.sanitize(value.trim()))
+    .optional(), // If provided, overrides/keeps without upload
+  categories: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+export type TCreateEducationalVideoRequest = z.infer<typeof createEducationalVideoSchema>;
+export type TEduVideoParams = z.infer<typeof EducationalVideoParamsSchema>;
+export type TUpdateEducationalVideoRequest = z.infer<typeof updateEducationalVideoSchema>;

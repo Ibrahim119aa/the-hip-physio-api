@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { isAdminAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { createContentHandler, deleteContentHandler, getAllContentHandler, getSingleContentHandler, updateContentHandler } from "../controllers/editableContent.controllers";
+import { hasRole } from "../middlewares/hasRole.middleware";
 
 const router = Router();
 
@@ -9,7 +10,7 @@ router.route("/").get(getAllContentHandler)
 router.route("/:slug")
   .get(getSingleContentHandler)
   .post( createContentHandler)
-  .put( updateContentHandler)
-  .delete(isAdminAuthenticated, deleteContentHandler);
+  .put( isAdminAuthenticated, hasRole('admin'), updateContentHandler)
+  .delete(isAdminAuthenticated, hasRole("admin"), deleteContentHandler);
 
 export default router;

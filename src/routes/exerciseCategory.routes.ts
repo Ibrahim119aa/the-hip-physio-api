@@ -9,7 +9,8 @@ router.route("/")
   .get(getAllCategoriesHandler)
   .post( isAdminAuthenticated, hasRole("admin"), addExerciseCategoryHandler)
 
-router.put("/:id", isAdminAuthenticated, hasRole("admin"),  updateExerciseCategoryHandler);
-router.delete("/:id", isAdminAuthenticated, hasRole("admin"), deleteExerciseCategoryHandler);
+router.route("/:id")
+  .put(isAdminAuthenticated, hasRole("admin"),  updateExerciseCategoryHandler)
+  .delete(isAdminAuthenticated, hasRole("admin"), deleteExerciseCategoryHandler);
  
 export default router;

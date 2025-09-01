@@ -2,14 +2,13 @@ import { Router } from "express";
 import { 
   resetPasswordHandler, 
   stripeWebhookAndCreateCredentialHandlerTemporary,
-  assignAdminRoleHandler,
   getUsersHandler,
-  createFirstAdminHandler,
   userLoginHandler,
   adminLoginHandler,
   getUserProfileHandler,
   updateUserProfileHandler,
-  adminLogoutHandler
+  adminLogoutHandler,
+  getUsersForNotificationsHandler
 } from "../controllers/user.controllers";
 import { isAdminAuthenticated, isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
@@ -24,12 +23,11 @@ router.route("/login").post(userLoginHandler)
 router.route("/profile")
   .get(isUserAuthenticated, getUserProfileHandler)
   .put(isUserAuthenticated, uploadProfileImage, validateProfileImageUpload, updateUserProfileHandler);
+router.route("/notification-picklist").get(isAdminAuthenticated, getUsersForNotificationsHandler);
 
 // Admin routes (protected by admin middleware)
 router.route("/admin/login").post(adminLoginHandler)
 router.route("/admin/logout").post(isAdminAuthenticated, hasRole('admin'), adminLogoutHandler)
-router.route("/admin/first-admin").post(createFirstAdminHandler)
 router.route("/admin/users").get(getUsersHandler)
-router.route("/admin/users/:userId/role").put(isAdminAuthenticated, hasRole('admin'), assignAdminRoleHandler)
 
 export default router;

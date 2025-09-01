@@ -1,25 +1,29 @@
 import { Router } from "express";
-import { createRehabPlanCategory, createRehabPlanHandler, deleteRehabPlanHandler, getAllRehabPlanCategories, getAllRehabPlansHandler, getRehabPlanByIdHandler, updateRehabPlanHandler } from "../controllers/rehabPlan.controllers";
+import { assigPlanToUserHandler, createRehabPlanHandler, deleteRehabPlanHandler, getAllRehabPlansHandler, getPlanScheduleHandler, getRehabPlanByIdHandler, updateRehabPlanHandler } from "../controllers/rehabPlan.controllers";
+import { addRehabPlanCategoryHandler, deleteRehabPlanCategoryHandler, getAllRehabPlabCategoriesHandler, updateRehabPlanCategoryHandler } from "../controllers/rehabPlanCategory.controllers";
 import { isAdminAuthenticated, isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 
 const router = Router();
 
-router.route("/")
-  .post(createRehabPlanHandler)
-  .get(getAllRehabPlansHandler)
-  
-  // router.route("/:planId")
-  // .put(isAuthenticated, hasRole('admin'), updateRehabPlanHandler)
-  // .delete(isAuthenticated, hasRole('admin'), deleteRehabPlanHandler);
 
+/** Rehab plan category Routes */ 
 router.route("/category")
-  .post(isAdminAuthenticated, hasRole('admin'), createRehabPlanCategory)
-  .get(getAllRehabPlanCategories)
+  .get(getAllRehabPlabCategoriesHandler)
+  .post( isAdminAuthenticated, hasRole("admin"), addRehabPlanCategoryHandler)
+  
+router.route("/category/:id")
+  .put(isAdminAuthenticated, hasRole("admin"),  updateRehabPlanCategoryHandler)
+  .delete(isAdminAuthenticated, hasRole("admin"), deleteRehabPlanCategoryHandler);
 
+/** Rehab plans Routes */ 
+router.route("/")
+  .post(isAdminAuthenticated, hasRole('admin'), createRehabPlanHandler)
+  .get(getAllRehabPlansHandler)
+router.route("/:planId/assign").post(isAdminAuthenticated, hasRole('admin'), assigPlanToUserHandler);  
+router.route('/:planId/schedule').get(getPlanScheduleHandler);
 router.route("/:planId")
   .get(isUserAuthenticated, getRehabPlanByIdHandler)
-  .put(updateRehabPlanHandler)
-  .delete( deleteRehabPlanHandler);
-
-  export default router;
+  .put(isAdminAuthenticated, hasRole('admin'), updateRehabPlanHandler)
+  .delete(isAdminAuthenticated, hasRole('admin'), deleteRehabPlanHandler);
+export default router;

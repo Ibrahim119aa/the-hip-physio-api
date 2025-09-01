@@ -42,11 +42,6 @@ export const exerciseSchema = new mongoose.Schema<TExerciseDocument>({
     required: true,
     trim: true
   },
-  // phase: {
-  //   type: String,
-  //   enum: ['Warm Up', 'Main Exercise', 'Cool Down', 'Recovery'],
-  //   default: 'Main Exercise'
-  // },
   difficulty: {
     type: String, // e.g., "Beginner", "Intermediate", "Advanced"
     enum: ["Beginner", "Medium", "Advanced"],

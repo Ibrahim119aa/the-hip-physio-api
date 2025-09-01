@@ -1,7 +1,5 @@
 import mongoose, { Schema } from "mongoose";
 
-
-
 const EditableContentSchema = new Schema(
   {
     title: { 
@@ -20,14 +18,6 @@ const EditableContentSchema = new Schema(
       type: String, 
       required: true 
     },
-    // version: { 
-    //   type: Number, 
-    //   default: 1 
-    // },
-    // published: { 
-    //   type: Boolean, 
-    //   default: true 
-    // },
     updatedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',

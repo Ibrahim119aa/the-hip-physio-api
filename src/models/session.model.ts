@@ -30,12 +30,6 @@ const sessionSchema = new mongoose.Schema({
     enum: ['too easy', 'just right', 'too hard'],
     required: false
   },
-  irritabilityScore: {
-    type: Number,
-    min: 0,
-    max: 10,
-    required: false
-  },
   userNotes: {
     type: String,
     trim: true,
