@@ -9,7 +9,7 @@ router.route("/").get(getAllContentHandler)
 
 router.route("/:slug")
   .get(getSingleContentHandler)
-  .post( createContentHandler)
+  .post( isAdminAuthenticated, hasRole('admin'), createContentHandler)
   .put( isAdminAuthenticated, hasRole('admin'), updateContentHandler)
   .delete(isAdminAuthenticated, hasRole("admin"), deleteContentHandler);
 
