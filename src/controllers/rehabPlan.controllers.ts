@@ -88,75 +88,106 @@ export const updateRehabPlanHandler = async (
   next: NextFunction
 ) => {
   try {
-    
     const parsedParams = planIdParamSchema.safeParse(req.params);
-    
-    if (!parsedParams.success) {
-      return next(new ErrorHandler(400, "Invalid plan id"));
-    }
-    
+    if (!parsedParams.success) return next(new ErrorHandler(400, "Invalid plan id"));
     const { planId } = parsedParams.data;
 
-    // Validate body (simple schema; all fields optional; createdBy is not allowed)
     const parsedBody = updateRehabPlanSchema.safeParse(req.body);
-
     if (!parsedBody.success) {
-      const errorMessages = parsedBody.error.issues.map((issue) => issue.message).join(", ");
-      throw new ErrorHandler(400, errorMessages);
+      const msg = parsedBody.error.issues.map(i => i.message).join(", ");
+      throw new ErrorHandler(400, msg);
     }
 
-    const data = parsedBody.data;
+    const data = parsedBody.data as any;
 
-    // If nothing to update, bail early
-    if (Object.keys(data).length === 0) {
-      throw new ErrorHandler(400, "Nothing to update");
-    }
-
-    // Minimal business rules (kept out of Zod per your preference)
+    // Business rule (keep as-is)
     if (data.planType === "free" && data.price !== undefined && data.price !== 0) {
       throw new ErrorHandler(400, "Free plan must have price = 0");
     }
 
-    if (
-      data.weekStart !== undefined &&
-      data.weekEnd !== undefined &&
-      data.weekStart !== null &&
-      data.weekEnd !== null &&
-      typeof data.weekStart === "number" &&
-      typeof data.weekEnd === "number" &&
-      data.weekEnd < data.weekStart
-    ) {
-      throw new ErrorHandler(400, "weekEnd must be greater than or equal to weekStart");
+    // Extract flags + schedule; don't persist the flags
+    const { schedule, overwriteSameDay, overwrite, ...rest } = data;
+    const allowOverwrite = Boolean(overwriteSameDay ?? overwrite);
+
+    // 1) $set non-schedule fields (if any)
+    const setDoc: Record<string, any> = {};
+    for (const [k, v] of Object.entries(rest)) {
+      if (v !== undefined) setDoc[k] = v;
     }
 
-    // Build update doc without undefineds
-    const updateDoc: any = {};
-    for (const key in data) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        const value = (data as any)[key];
-        if (value !== undefined) updateDoc[key] = value;
+    if (Object.keys(setDoc).length) {
+      const setRes = await RehabPlanModel.findByIdAndUpdate(
+        planId,
+        { $set: setDoc },
+        { new: true, runValidators: true }
+      ).lean();
+      if (!setRes) throw new ErrorHandler(404, "Rehab plan not found");
+    } else {
+      const exists = await RehabPlanModel.exists({ _id: planId });
+      if (!exists) throw new ErrorHandler(404, "Rehab plan not found");
+    }
+
+    // 2) Schedule logic
+    let replaced = false;
+
+    if (schedule !== undefined) {
+      const items = Array.isArray(schedule) ? schedule : [schedule];
+
+      for (const it of items) {
+        const week = it.week;
+        const day = it.day;
+        const sessions = Array.isArray(it.sessions) ? it.sessions : [];
+
+        // Does this (week, day) already exist?
+        const exists = await RehabPlanModel.exists({
+          _id: planId,
+          "schedule.week": week,
+          "schedule.day": day,
+        });
+
+        if (exists) {
+          if (allowOverwrite) {
+            // Replace the existing (week, day) entry completely
+            await RehabPlanModel.updateOne(
+              { _id: planId },
+              { $set: { "schedule.$[d]": { week, day, sessions } } },
+              {
+                arrayFilters: [{ "d.week": week, "d.day": day }],
+                runValidators: true,
+              }
+            );
+            replaced = true;
+          }
+          // else: skip silently (no duplicate added)
+        } else {
+          // Push a brand-new schedule item
+          await RehabPlanModel.updateOne(
+            { _id: planId },
+            { $push: { schedule: { week, day, sessions } } },
+            { runValidators: true }
+          );
+        }
       }
     }
 
-    // Update with validators ON to respect Mongoose schema rules
-    const updated = await RehabPlanModel.findByIdAndUpdate(planId, updateDoc, {
-      new: true,
-      runValidators: true,
-    }).lean();
+    // 3) Return final doc and short message
+    const updatedDoc = await RehabPlanModel.findById(planId).lean();
+    if (!updatedDoc) throw new ErrorHandler(404, "Rehab plan not found");
 
-    if (!updated) throw new ErrorHandler(404, "Rehab plan not found");
+    const msg = replaced
+      ? "Replaced and plan updated successfully"
+      : "Plan updated successfully";
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Rehab plan updated successfully",
-      data: updated,
+      message: msg,
+      data: updatedDoc,
     });
   } catch (error) {
     console.error("updateRehabPlanHandler error:", error);
     next(error);
   }
 };
-
 
 export const deleteRehabPlanHandler = async (
   req: Request<TPlanIdParams>,
@@ -214,110 +245,6 @@ export const assigPlanToUserHandler = async(req: Request, res: Response, next: N
 
   } catch (error) {
     console.error('assigPlanToUserHandler error :', error);
-    next(error)
-  }
-}
-
-// export const updateRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
-//   console.log('working api update');
-  
-//   try {
-//     const { planId } = req.params;
-//     const updateData = req.body;
-
-//     console.log('req.params', req.params);
-//     console.log('req.body', req.body);
-    
-//     // Validate planId
-//     if (!planId) {
-//       throw new ErrorHandler(400, 'Plan ID is required');
-//     }
-
-//     // Find and update the rehab plan
-//     const updatedPlan = await RehabPlanModel.findByIdAndUpdate(planId, updateData, { new: true });
-
-//     if (!updatedPlan) {
-//       throw new ErrorHandler(404, 'Rehab plan not found');
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       data: updatedPlan
-//     });
-
-//   } catch (error) {
-//     console.error('updateRehabPlanHandler error :', error);
-//     next(error)
-//   }
-// }
-
-// export const deleteRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
-//   try {
-
-//   } catch (error) {
-//     console.error('deleteRehabPlanHandler error :', error);
-//     next(error)
-//   }
-// }
-
-// export const getRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
-//   try {
-
-//   } catch (error) {
-//     console.error('getRehabPlanHandler error :', error);
-//     next(error)
-//   }
-// }
-
-export const getRehabPlanByIdHandler01 = async(req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { planId } = req.params;
-
-    if (!planId) {
-      throw new ErrorHandler(400, 'Plan ID is required');
-    }
-
-    const rehabPlan = await RehabPlanModel.findById(planId)
-    .populate({
-        path: 'category',
-        select: 'title description'
-      })
-      .populate({
-        path: 'schedule.sessions',
-        populate: { 
-          path: 'exercises',
-          model: 'Exercise'
-
-        }
-      })
-      
-      const numberOfWeeks = new Set(rehabPlan.schedule?.map((week: any) => week.week)).size;
-
-      const numberOfSessions = rehabPlan.schedule?.map((week: any) => week.sessions);
-      const numberOfDays = rehabPlan.schedule?.map((day: any) => day.day);
-      const totalDurationInSeconds = rehabPlan.schedule
-        .flatMap((week: any) => week.sessions)
-        .flatMap((session: any) => session.exercises)
-        .reduce((sum: number, exercise: any) => sum + (exercise.estimatedDuration || 0), 0)
-      const totalDurationInMinutes = Math.ceil(totalDurationInSeconds / 60);
-
-    if (!rehabPlan) {
-      throw new ErrorHandler(404, 'Rehab plan not found');
-    }
-
-    res.status(200).json({
-      success: true,
-      data: rehabPlan,
-      stats: {
-        numberOfWeeks: numberOfWeeks,
-        numberOfSessions: numberOfSessions.length,
-        numberOfDays: numberOfDays.length,
-        totalDuration: totalDurationInMinutes
-      }
-    });
-
-  } catch (error) {
-    console.error('getRehabPlanByIdHandler error :', error);
     next(error)
   }
 }

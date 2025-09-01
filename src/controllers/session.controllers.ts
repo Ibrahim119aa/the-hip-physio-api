@@ -6,8 +6,7 @@ import RehabPlanModel from "../models/rehabPlan.model";
 
 export const createSessionHandler = async(req: Request, res: Response, next: NextFunction) => {
   try {
-    // console.log('session create', req.body);
-    
+
     const {
       title,
       rehabPlan,
