@@ -3,24 +3,25 @@ import { createEducationalVideoCategoryHandler, deleteEducationalVideoCategoryHa
 import { addEducationalVideoHandler, deleteEducationalVideoHandler, getAllEducationalVideosHandler, updateEducationalVideoHandler } from "../controllers/educationalVideos.controllers";
 import { uploadVideoAndThumbnail, validateVideoUpload } from "../middlewares/upload.middleware";
 import { isAdminAuthenticated } from "../middlewares/isAuthenticated.middleware";
+import { hasRole } from "../middlewares/hasRole.middleware";
 
 const router = Router()
 
 router.route("/")
-  .post(uploadVideoAndThumbnail, validateVideoUpload, addEducationalVideoHandler)
+  .post(isAdminAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateVideoUpload, addEducationalVideoHandler)
   .get(getAllEducationalVideosHandler);
 router.route("/:id")
-  .put(isAdminAuthenticated, uploadVideoAndThumbnail, updateEducationalVideoHandler)
-  .delete(isAdminAuthenticated, deleteEducationalVideoHandler);
+  .put(isAdminAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, updateEducationalVideoHandler)
+  .delete(isAdminAuthenticated, hasRole('admin'), deleteEducationalVideoHandler);
 
   // categories routes
 router.route("/category")
-  .post(isAdminAuthenticated, createEducationalVideoCategoryHandler)
+  .post(isAdminAuthenticated, hasRole('admin'), createEducationalVideoCategoryHandler)
   .get(getAllEducationalVideoCategoriesHandler);
 
   router.route("/category/:id")  
-  .put(isAdminAuthenticated, updateEducationalVideoCategoryHandler)
-  .delete(isAdminAuthenticated, deleteEducationalVideoCategoryHandler);
+  .put(isAdminAuthenticated, hasRole('admin'), updateEducationalVideoCategoryHandler)
+  .delete(isAdminAuthenticated, hasRole('admin'), deleteEducationalVideoCategoryHandler);
 
 
 

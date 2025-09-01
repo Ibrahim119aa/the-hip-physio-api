@@ -15,16 +15,16 @@ export const createRehabPlanHandler = async(
   next: NextFunction
 ) => {
   try {
-
+    
     const parsedBody = createRehabPlanPhaseSchema.safeParse(req.body)
     const adminId = req.adminId
-    console.log('req.body', req.body);
-    console.log('req. parse', parsedBody);
-    console.log('admin', adminId);
-    
-    
+
     if (!parsedBody.success) {
-      const errorMessages = parsedBody.error.issues.map(issue => issue.message).join(', ');
+      const errorMessages = parsedBody.error.issues.map(issue => { 
+        const path = issue.path.join(".");
+        return `${path}: ${issue.message}`;
+      }).join(", ");
+
       throw new ErrorHandler(400, errorMessages);
     }
     
@@ -630,6 +630,93 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
     
   } catch (err) {
     console.error("getAllRehabPlansHandler error:", err);
+    next(err);
+  }
+};
+
+export const getPlanScheduleHandler = async (
+  req: Request<{ planId: string }>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { planId } = req.params;
+    if (!mongoose.isValidObjectId(planId)) {
+      return res.status(400).json({ success: false, message: 'Invalid plan id' });
+    }
+
+    // Pull plan name/phase and fully populated schedule → sessions → exercises
+    const plan = await RehabPlanModel.findById(planId)
+      .select('name phase schedule')
+      .populate({
+        path: 'schedule.sessions',
+        model: 'Session',
+        select: 'title weekNumber dayNumber exercises isComplete',
+        populate: {
+          path: 'exercises',
+          model: 'Exercise',
+          select:
+            'name thumbnailUrl reps sets estimatedDuration videoUrl category bodyPart difficulty tags',
+          populate: {
+            path: 'category',
+            model: 'ExerciseCategory', // adjust to your category model name
+            select: 'title',
+          },
+        },
+      })
+      .lean<any>();
+
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Plan not found' });
+    }
+
+    // Build grouped structure: weeks -> days -> sessions
+    // schedule is an array of { week, day, sessions:[Session] }
+    const weeksMap = new Map<number, { week: number; days: Array<{ day: number; sessions: any[] }> }>();
+
+    for (const item of plan.schedule ?? []) {
+      const weekNum = item.week as number;
+      const dayNum = item.day as number;
+
+      if (!weeksMap.has(weekNum)) {
+        weeksMap.set(weekNum, { week: weekNum, days: [] });
+      }
+      const weekEntry = weeksMap.get(weekNum)!;
+
+      let dayEntry = weekEntry.days.find((d) => d.day === dayNum);
+      if (!dayEntry) {
+        dayEntry = { day: dayNum, sessions: [] };
+        weekEntry.days.push(dayEntry);
+      }
+
+      for (const s of item.sessions ?? []) {
+        const exercises = (s as any).exercises ?? [];
+        dayEntry.sessions.push({
+          sessionId: String((s as any)._id),
+          title: (s as any).title,
+          isComplete: (s as any).isComplete ?? false,
+          totalExercises: exercises.length,
+          completedExercises: 0, // compute if you track completed per exercise
+          exercises, // already populated with the selected fields
+        });
+      }
+    }
+
+    const weeks = Array.from(weeksMap.values())
+      .sort((a, b) => a.week - b.week)
+      .map((w) => ({
+        ...w,
+        days: w.days.sort((a, b) => a.day - b.day),
+      }));
+
+    return res.json({
+      success: true,
+      data: {
+        plan: { _id: String(plan._id), name: plan.name, phase: plan.phase ?? null },
+        weeks,
+      },
+    });
+  } catch (err) {
     next(err);
   }
 };

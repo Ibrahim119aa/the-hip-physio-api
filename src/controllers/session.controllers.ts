@@ -3,9 +3,21 @@ import SessionModel from "../models/session.model";
 import ErrorHandler from "../utils/errorHandlerClass";
 import UserProgressModel from "../models/userProgress.model";
 import RehabPlanModel from "../models/rehabPlan.model";
+import { CreateSessionSchema, SessionParamsSchema, TCreateSessionRequest, TSessionParams } from "../validationSchemas/session.schema";
 
-export const createSessionHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const createSessionHandler = async(
+  req: Request<{}, {}, TCreateSessionRequest>, 
+  res: Response, 
+  next: NextFunction
+) => {
+
   try {
+    const parsedBody = CreateSessionSchema.safeParse(req.body);
+  
+    if (!parsedBody.success) {
+      const errorMesssages = parsedBody.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMesssages);
+    } 
 
     const {
       title,
@@ -13,7 +25,7 @@ export const createSessionHandler = async(req: Request, res: Response, next: Nex
       weekNumber, 
       dayNumber,
       exercises,
-    } = req.body;
+    } = parsedBody.data;
 
   
     const session = await SessionModel.create({
@@ -23,10 +35,12 @@ export const createSessionHandler = async(req: Request, res: Response, next: Nex
       dayNumber,
       exercises,
     });
+  
+    if(!session) throw new ErrorHandler(500, "Failed to create session");
 
-    // Return created session
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
+      message: "Session created successfully",
       data: session
     });
 
@@ -36,41 +50,103 @@ export const createSessionHandler = async(req: Request, res: Response, next: Nex
   }
 }
 
-export const getSessionByIdHandler = async(req: Request, res: Response, next: NextFunction) => {
+// Add exercises to a session (no duplicates)
+export const addExercisesToSessionHandler = async (
+  req: Request<TSessionParams, {}, { exerciseIds: string[] }>,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { sessionId } = req.params;
-
-    if (!sessionId) {
-      throw new ErrorHandler(400, 'Session ID is required');
+    const parsedParams = SessionParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const errorMesssages = parsedParams.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMesssages);
     }
 
-    const session = await SessionModel.findById(sessionId)
+    const { sessionId } = parsedParams.data;
+    const { exerciseIds } = req.body;
+
+    if (!Array.isArray(exerciseIds) || exerciseIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'exerciseIds required' });
+    }
+
+    await SessionModel.updateOne(
+      { _id: sessionId },
+      {
+        $addToSet: {
+          exercises: { $each: exerciseIds },
+        },
+      }
+    );
+
+    const updated = await SessionModel.findById(sessionId)
+      .select('title weekNumber dayNumber exercises isComplete')
       .populate({
         path: 'exercises',
-        model: 'Exercise'
-      })
-      .lean();
+        model: 'Exercise',
+        select:
+          'name thumbnailUrl reps sets estimatedDuration videoUrl category bodyPart difficulty tags',
+        populate: {
+          path: 'category',
+          model: 'ExerciseCategory',
+          select: 'title',
+        },
+      });
 
-    if (!session) {
-      throw new ErrorHandler(404, 'Session not found');
-    }
-
-    res.status(200).json({
+    res.json({ 
       success: true,
-      data: session
+      message: 'Exercises added to session successfully', 
+      data: updated 
     });
-
-  } catch (error) {
-    console.error('getSessionByIdHandler error :', error);
-    next(error)
+  } catch (err) {
+    next(err);
   }
-}
+};
 
-export const getExerciseBySessionId = async(req: Request, res: Response, next: NextFunction) => {
+// Remove one exercise from a session
+export const removeExerciseFromSessionHandler = async (
+  req: Request<{ sessionId: string; exerciseId: string }>,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { sessionId, exerciseId } = req.params;
-    console.log(sessionId, exerciseId);
-    
+
+    await SessionModel.updateOne(
+      { _id: sessionId },
+      { $pull: { exercises: exerciseId } }
+    );
+
+    const updated = await SessionModel.findById(sessionId)
+      .select('title weekNumber dayNumber exercises isComplete')
+      .populate({
+        path: 'exercises',
+        model: 'Exercise',
+        select:
+          'name thumbnailUrl reps sets estimatedDuration videoUrl category bodyPart difficulty tags',
+        populate: {
+          path: 'category',
+          model: 'ExerciseCategory',
+          select: 'title',
+        },
+      });
+
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const getExerciseBySessionId = async(
+  req: Request<{ sessionId: string; exerciseId: string }>, 
+  res: Response, 
+  next: NextFunction
+) => {
+  try {
+
+    const { sessionId, exerciseId } = req.params;
+   
     if (!sessionId) {
       throw new ErrorHandler(400, 'Session ID is required');
     }
@@ -108,7 +184,11 @@ export const getExerciseBySessionId = async(req: Request, res: Response, next: N
   }
 }
 
-export const getSessionsForRehabPlanHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const getSessionsForRehabPlanHandler = async(
+  req: Request, 
+  res: Response, 
+  next: NextFunction
+) => {
   try {
     const { planId } = req.params;
 
@@ -122,6 +202,10 @@ export const getSessionsForRehabPlanHandler = async(req: Request, res: Response,
         model: 'Exercise'
       });
 
+    if(!sessions) {
+      throw new ErrorHandler(404, 'No sessions found for this rehab plan');
+    }
+
     res.status(200).json({
       success: true,
       data: sessions
@@ -130,5 +214,42 @@ export const getSessionsForRehabPlanHandler = async(req: Request, res: Response,
   } catch (error) {
     console.error('getAllSessionsHandler error:', error);
     next(error);
+  }
+}
+
+export const getSessionByIdHandler = async(
+  req: Request<TSessionParams, {}, {}>, 
+  res: Response, 
+  next: NextFunction
+) => {
+  try {
+    const parsedParams = SessionParamsSchema.safeParse(req.params);
+
+    if (!parsedParams.success) {
+      const errorMesssages = parsedParams.error.issues.map((issue) => issue.message).join(", ");
+      throw new ErrorHandler(400, errorMesssages);
+    }
+    
+    const { sessionId } = parsedParams.data;
+
+    const session = await SessionModel.findById(sessionId)
+      .populate({
+        path: 'exercises',
+        model: 'Exercise'
+      })
+      .lean();
+
+    if (!session) {
+      throw new ErrorHandler(404, 'Session not found');
+    }
+
+    res.status(200).json({
+      success: true,
+      data: session
+    });
+
+  } catch (error) {
+    console.error('getSessionByIdHandler error :', error);
+    next(error)
   }
 }

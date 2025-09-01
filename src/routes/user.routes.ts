@@ -2,9 +2,7 @@ import { Router } from "express";
 import { 
   resetPasswordHandler, 
   stripeWebhookAndCreateCredentialHandlerTemporary,
-  assignAdminRoleHandler,
   getUsersHandler,
-  createFirstAdminHandler,
   userLoginHandler,
   adminLoginHandler,
   getUserProfileHandler,
@@ -30,8 +28,6 @@ router.route("/notification-picklist").get(isAdminAuthenticated, getUsersForNoti
 // Admin routes (protected by admin middleware)
 router.route("/admin/login").post(adminLoginHandler)
 router.route("/admin/logout").post(isAdminAuthenticated, hasRole('admin'), adminLogoutHandler)
-router.route("/admin/first-admin").post(createFirstAdminHandler)
 router.route("/admin/users").get(getUsersHandler)
-router.route("/admin/users/:userId/role").put(isAdminAuthenticated, hasRole('admin'), assignAdminRoleHandler)
 
 export default router;

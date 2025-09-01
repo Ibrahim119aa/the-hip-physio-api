@@ -58,32 +58,6 @@ export const uploadImage = upload.single('thumbnail');
 export const uploadProfileImage = upload.single('profileImage');
 
 
-// Error handling middleware for multer
-export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Multer error:', error);
-  
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return next(new ErrorHandler(400, 'File size too large. Maximum size is 100MB'));
-    }
-    if (error.code === 'LIMIT_FILE_COUNT') {
-      console.error('File count exceeded. Received files:', req.files);
-      return next(new ErrorHandler(400, 'Too many files uploaded. Please send only one video file and one thumbnail file.'));
-    }
-    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-      console.error('Unexpected file field:', error.field);
-      return next(new ErrorHandler(400, `Unexpected file field: ${error.field}. Expected fields are 'video' and 'thumbnail'`));
-    }
-    return next(new ErrorHandler(400, `File upload error: ${error.message}`));
-  }
-
-  if (error instanceof ErrorHandler) {
-    return next(error);
-  }
-
-  return next(new ErrorHandler(500, 'File upload failed'));
-};
-
 // Validation middleware for exercise uploads
 export const validateVideoUpload = (req: Request, res: Response, next: NextFunction) => {
   try {

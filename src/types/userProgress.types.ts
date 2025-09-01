@@ -29,3 +29,4 @@ export type TUserProgress = {
 }
 
 export type TUserProgressDocument = TUserProgress & Document;
+
