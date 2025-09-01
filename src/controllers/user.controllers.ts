@@ -11,7 +11,7 @@ import ErrorHandler from "../utils/errorHandlerClass";
 import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
 import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers";
 import bcrypt from 'bcrypt';
-import { TUpdateUserRequest, TUserLoginRequest, updateUserSchema, userLoginSchema } from "../validationSchemas/user.schema";
+import { adminUpdateUserSchema, TAdminUpdateUserRequest, TUpdateUserRequest, TUserLoginRequest, TUserRequest, updateUserSchema, userLoginSchema, userSchema } from "../validationSchemas/user.schema";
 import { uploadProfileImageToCloudinary } from "../utils/cloudinaryUploads/uploadProfileImageToCloudinary";
 
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
@@ -180,7 +180,11 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
   }
 };
 
-export const adminLoginHandler = async (req: Request<{}, {}, TUserLoginRequest>, res: Response, next: NextFunction) => {
+export const adminLoginHandler = async (
+  req: Request<{}, {}, TUserLoginRequest>, 
+  res: Response, 
+  next: NextFunction
+) => {
   try {
     const parsedBody = userLoginSchema.safeParse(req.body);
 
@@ -238,7 +242,11 @@ export const adminLogoutHandler = async(req: Request, res: Response, next: NextF
   }
 }
 
-export const userLoginHandler = async (req: Request<{}, {}, TUserLoginRequest>, res: Response, next: NextFunction) => {
+export const userLoginHandler = async (
+  req: Request<{}, {}, TUserLoginRequest>, 
+  res: Response, 
+  next: NextFunction
+) => {
   try {
     const parsedBody = userLoginSchema.safeParse(req.body);
 
@@ -315,7 +323,7 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
   }
 }
 
-export const getUsersHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllUsersHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page = 1, limit = 20, role, status } = req.query;
 
@@ -463,6 +471,176 @@ export const updateUserProfileHandler = async(
     });
   } catch (error) {
     console.error('updateUserProfileHandler error', error);
+    next(error);
+  }
+}
+
+export const addUserByAdminHandler = async (
+  req: Request<{}, {}, TUserRequest>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Normalize client nulls -> undefined so Zod .optional() passes
+    const raw = req.body as any;
+    const normalized = {
+      ...raw,
+      occupation: raw?.occupation ?? undefined,
+      dob: raw?.dob ?? undefined,
+      profile_photo: raw?.profile_photo ?? undefined,
+      role: raw?.role ?? "user",
+      status: raw?.status ?? "active",
+    };
+
+    // Validate + sanitize
+    const parsed = userSchema.safeParse(normalized);
+    if (!parsed.success) {
+      const msg = parsed.error.issues.map(i => i.message).join(", ");
+      throw new ErrorHandler(400, msg);
+    }
+
+    const { email } = parsed.data;
+
+    // Uniqueness check (also guarded in duplicate-key catch below)
+    const exists = await UserModel.findOne({ email }).select("_id").lean();
+    if (exists) throw new ErrorHandler(409, "Email is already registered");
+
+    // Build create doc (password hashing assumed in model pre-save)
+    const doc: any = {
+      name: parsed.data.name,
+      email: parsed.data.email,
+      password: parsed.data.password,
+      occupation: parsed.data.occupation,
+      dob: parsed.data.dob,
+      profile_photo: parsed.data.profile_photo,
+      status: parsed.data.status ?? "active",
+      role: parsed.data.role ?? "user",
+      startDate: parsed.data.startDate ?? new Date(),
+      fcmToken: parsed.data.fcmToken,
+    };
+
+    if (parsed.data.purchasedPlans?.length) {
+      doc.purchasedPlans = parsed.data.purchasedPlans.map(id => new Types.ObjectId(id));
+    }
+    if (parsed.data.notifications?.length) {
+      doc.notifications = parsed.data.notifications.map(id => new Types.ObjectId(id));
+    }
+
+    const created = await UserModel.create(doc);
+
+    // Return safe projection
+    const createdSafe = await UserModel.findById(created._id)
+      .select("-password")
+      .lean();
+
+    return res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      data: createdSafe,
+    });
+  } catch (error: any) {
+    // Handle unique index race
+    if (error?.code === 11000 && error?.keyPattern?.email) {
+      return next(new ErrorHandler(409, "Email is already registered"));
+    }
+    console.error("createUserHandler error", error);
+    next(error);
+  }
+};
+
+export const updateUserByAdminHandler = async (
+  req: Request<{ id: string }, {}, TAdminUpdateUserRequest>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) throw new ErrorHandler(400, "Invalid user id");
+
+    // normalize null -> undefined so .optional() passes
+    const raw = req.body as Record<string, any>;
+    const normalized = Object.fromEntries(
+      Object.entries(raw).map(([k, v]) => [k, v === null ? undefined : v])
+    );
+
+    const parsed = adminUpdateUserSchema.safeParse(normalized);
+    if (!parsed.success) {
+      const msg = parsed.error.issues.map(i => i.message).join(", ");
+      throw new ErrorHandler(400, msg);
+    }
+    const data = parsed.data;
+
+    if (Object.keys(data).length === 0) {
+      throw new ErrorHandler(400, "No fields provided to update");
+    }
+
+    // Ensure unique email if being changed
+    if (data.email) {
+      const dup = await UserModel.findOne({ email: data.email, _id: { $ne: id } })
+        .select("_id")
+        .lean();
+      if (dup) throw new ErrorHandler(409, "Email is already registered");
+    }
+
+    const user = await UserModel.findById(id);
+    if (!user) throw new ErrorHandler(404, "User not found");
+
+    // Assign only provided fields
+    if (data.name !== undefined) user.name = data.name;
+    if (data.email !== undefined) user.email = data.email;
+    if (data.password !== undefined) user.password = data.password; // pre-save will hash
+    if (data.occupation !== undefined) user.occupation = data.occupation;
+    if (data.dob !== undefined) user.dob = data.dob;
+    if (data.profile_photo !== undefined) user.profile_photo = data.profile_photo;
+    if (data.fcmToken !== undefined) user.fcmToken = data.fcmToken;
+    if (data.status !== undefined) user.status = data.status;
+    if (data.role !== undefined) user.role = data.role;
+    if (data.startDate !== undefined) user.startDate = data.startDate as any;
+    if (data.lastLogin !== undefined) user.lastLogin = data.lastLogin as any;
+
+    if (data.purchasedPlans !== undefined) {
+      user.purchasedPlans = data.purchasedPlans.map(pid => new Types.ObjectId(pid));
+    }
+    if (data.notifications !== undefined) {
+      user.notifications = data.notifications.map(nid => new Types.ObjectId(nid));
+    }
+
+    await user.save(); // ensures password hashing hooks run
+
+    const safe = await UserModel.findById(id).select("-password").lean<any>();
+
+    return res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+      data: safe && {
+        ...safe,
+        dob: safe.dob ? new Date(safe.dob as any).toISOString().split("T")[0] : null,
+      },
+    });
+  } catch (error) {
+    console.error("updateUserByAdminHandler error", error);
+    next(error);
+  }
+};
+
+export const  deleteUserByAdminHandler = async(
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) throw new ErrorHandler(400, "Invalid user id");
+
+    const user = await UserModel.findByIdAndDelete(id);
+    if (!user) throw new ErrorHandler(404, "User not found");
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("deleteUserByAdminHandler error", error);
     next(error);
   }
 }
