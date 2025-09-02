@@ -225,7 +225,7 @@ export const markSessionCompleteAndStreakCount = async (
       }
     };
 
-    if (isSameDay || isNextDay) {
+    if (isNextDay) {
       updatePayload.$inc = {
         streakCountWeekly: 1,
         streakCountMonthly: 1
@@ -839,7 +839,7 @@ export const   getUserStreakAndPgoressHanlder = async (
     // 5) Compute totals
     const totalExercises = planKeys.size;
     let completedExercises = 0;
-    
+
     for (const key of planKeys) {
       if (completedKeys.has(key)) completedExercises += 1;
     }
