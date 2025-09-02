@@ -429,10 +429,23 @@ export const updateUserProfileHandler = async(
   next: NextFunction
 ) => { 
   try {
+    console.log('this is called')
+
+    console.log('req.body', req.body);
+    
     const parsedBody = updateUserSchema.safeParse(req.body);
+
+    console.log(
+      'parsedBody',
+      parsedBody
+    );
+    
     
     const userId = req.userId;
     const file = req.profileImage
+    console.log('userId', userId);
+    console.log('file', file);
+    
     
     if(!parsedBody.success) {
       const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
