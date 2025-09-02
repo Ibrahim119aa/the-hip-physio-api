@@ -17,15 +17,14 @@ import notificationRoutes from './routes/notification.routes';
 import userNoteRoutes from './routes/userNote.routes';
 import weeklyResilienceCheckinRoutes from './routes/weeklyPsychologicalCheckIn.routes'
 import editableContentRoutes from './routes/editableConten.routes';
-import defineSendNotificationJob from './jobs/sendNotification';
-
+// import { defineSendNotificationJob } from './jobs/sendNotification';
 
 const app = express();
 
-(async () => {
-  defineSendNotificationJob(agenda);
-  await agenda.start();
-})();
+// (async () => {
+//   defineSendNotificationJob(agenda);
+//   await agenda.start();
+// })();
 
 app.use(morgan('dev'))
 
