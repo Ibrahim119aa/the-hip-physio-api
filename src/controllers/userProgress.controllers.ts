@@ -334,11 +334,6 @@ export const getUserStreakHanlder = async(req: Request, res: Response, next: Nex
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Optional: If you have separate Session/Exercise models, import them if needed
-// import SessionModel from "../models/session.model";
-// import ExerciseModel from "../models/exercise.model";
-
-
 
 // Helper to stringify ObjectId
 const oid = (v: any) => (typeof v === "string" ? v : (v as mongoose.Types.ObjectId).toString());
@@ -829,6 +824,7 @@ export const   getUserStreakAndPgoressHanlder = async (
 
     // 4) Build unique plan keys (dedupe duplicates in schedule)
     const planKeys = new Set<string>();
+
     for (const item of plan.schedule || []) {
       for (const s of item.sessions || []) {
         const sessionId = idStr(s._id);
@@ -843,6 +839,7 @@ export const   getUserStreakAndPgoressHanlder = async (
     // 5) Compute totals
     const totalExercises = planKeys.size;
     let completedExercises = 0;
+    
     for (const key of planKeys) {
       if (completedKeys.has(key)) completedExercises += 1;
     }

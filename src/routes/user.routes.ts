@@ -35,9 +35,8 @@ router.route("/update/:id")
   .put( isAdminAuthenticated, hasRole('admin'), updateUserByAdminHandler)
   .delete( isAdminAuthenticated, hasRole('admin'), deleteUserByAdminHandler);
 
-// Admin routes (protected by admin middleware)
+// Admin routes
 router.route("/admin/login").post(adminLoginHandler)
 router.route("/admin/logout").post(isAdminAuthenticated, hasRole('admin'), adminLogoutHandler)
-// router.route("/admin/users").get(getUsersHandler)
 
 export default router;

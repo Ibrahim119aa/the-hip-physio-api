@@ -15,8 +15,16 @@ import { DateTime } from "luxon";
 // const timezone = ['Asia/Dubai','Europe/London','America/New_York','Asia/Kolkata','Australia/Sydney']
 // utils/time/buildCompletionRecord.ts
 export function buildCompletionRecord({ completedAtUTC, timezone}: { completedAtUTC: Date; timezone: string;}) {
+  console.log('completedAtUTC', completedAtUTC)
+  console.log('timezone', timezone);
+  
   const utc = DateTime.fromJSDate(completedAtUTC, { zone: 'utc' });
+  console.log('utc converted to utc', utc);
   const local = utc.setZone(timezone);
+  console.log('local converted to local', local)
+  console.log('completed at local' , local.toISO());
+  console.log('completed at ` day key', local.toFormat('yyyy-MM-dd'))
+  
   
   if (!local.isValid) throw new Error(`Invalid timezone provided must be IANA, e.g. "Asia/Dubai": ${timezone}`);
 
@@ -26,18 +34,3 @@ export function buildCompletionRecord({ completedAtUTC, timezone}: { completedAt
     dayKey: local.toFormat('yyyy-MM-dd')
   };
 }
-
-
-// CODE FOR FLUTTER APP
- 
-// import 'package:flutter_native_timezone/flutter_native_timezone.dart';
-
-// Future<String> getUserTimezone() async {
-//   try {
-//     final timezone = await FlutterNativeTimezone.getLocalTimezone();
-//     return timezone; // e.g., 'Asia/Dubai'
-//   } catch (e) {
-//     print('Failed to get timezone: $e');
-//     return 'UTC'; // fallback if error
-//   }
-// }
