@@ -310,7 +310,7 @@ export const getNotificationByIdHandler = async (req: Request, res: Response, ne
   try {
     const notif = await NotificationsModel.findById(req.params.id).lean();
 
-    if (!notif) return res.status(404).json({ success: false, message: 'Notification not found' });
+    if (!notif) throw new ErrorHandler(404, 'Notification not found');
     
     res.json({ 
       success: true, 

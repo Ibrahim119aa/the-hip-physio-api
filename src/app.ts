@@ -17,6 +17,7 @@ import notificationRoutes from './routes/notification.routes';
 import userNoteRoutes from './routes/userNote.routes';
 import weeklyResilienceCheckinRoutes from './routes/weeklyPsychologicalCheckIn.routes'
 import editableContentRoutes from './routes/editableConten.routes';
+import dashboardRouter from './routes/dashboard.routes';
 // import { defineSendNotificationJob } from './jobs/sendNotification';
 
 const app = express();
@@ -64,6 +65,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/user-notes', userNoteRoutes)
 app.use('/api/weekly-resilience-checkin', weeklyResilienceCheckinRoutes)
 app.use('/api/editable-content', editableContentRoutes)
+app.use('/api/dashboard', dashboardRouter)
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
