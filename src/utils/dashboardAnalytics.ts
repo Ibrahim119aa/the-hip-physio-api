@@ -30,7 +30,9 @@ const toISODate = (d: Date) => {
   return `${y}-${m}-${dd}`;
 };
 
-const monthKey = (d: Date) => `${d.getUTCFullYear()}-${(d.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+const monthKey = (d: Date) =>
+  `${d.getUTCFullYear()}-${(d.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+
 const monthLabel = (ym: string) => {
   const [y, m] = ym.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en', { month: 'short' });
@@ -51,7 +53,10 @@ const setCache = (key: string, payload: DashboardAnalytics, ttlMs = DEFAULT_TTL_
 };
 
 // --- Helpers to keep types strict ---
-const planName = (planId?: mongoose.Types.ObjectId | string, planMap?: Map<string, string>): string => {
+const planName = (
+  planId?: mongoose.Types.ObjectId | string,
+  planMap?: Map<string, string>
+): string => {
   if (!planId || !planMap) return '—';
   const name = planMap.get(String(planId));
   return typeof name === 'string' && name.trim().length > 0 ? name : '—';
@@ -61,14 +66,14 @@ const EMPTY_USER_WITH_ANALYTICS: UserWithAnalytics = {
   _id: 'na',
   username: '—',
   plan: '—',
-  analytics: { complianceRate: 0 },
+  analytics: { complianceRate: 0, missedDays: 0 },
 };
 
 // ------------------------------
 // Main service
 // ------------------------------
 export async function getDashboardAnalyticsService(
-  windowDays = 7,
+  windowDays = 7,   // used for "Least compliant" + session chart
   irritabilityDays = 30,
   growthMonths = 12
 ): Promise<DashboardAnalytics> {
@@ -84,7 +89,9 @@ export async function getDashboardAnalyticsService(
   const now = new Date();
   const fromWindow = daysAgo(windowDays);
   const fromIrr = daysAgo(irritabilityDays);
-  const fromGrowthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (growthMonths - 1), 1));
+  const fromGrowthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (growthMonths - 1), 1)
+  );
 
   // Prebuild last N ISO days for chart
   const lastNDaysIso: string[] = Array.from({ length: windowDays }).map((_, i) => {
@@ -97,8 +104,12 @@ export async function getDashboardAnalyticsService(
   // --------- Aggregations ----------
   // Counts
   const [totalUsers, activeUsers] = await Promise.all([
-    UserModel.countDocuments({}),
-    UserModel.countDocuments({ status: 'active', lastLogin: { $gte: daysAgo(7) } }),
+    UserModel.countDocuments({}), // includes admins
+    UserModel.countDocuments({
+      status: 'active',
+      role: 'user',               // exclude admins from "active users"
+      lastLogin: { $gte: daysAgo(7) },
+    }),
   ]);
 
   // Highest irritability (avg last irritabilityDays)
@@ -151,7 +162,7 @@ export async function getDashboardAnalyticsService(
     { $group: { _id: '$_id.userId', completedDays: { $sum: 1 } } },
   ]);
 
-  // Distinct completed days/user in 30 days (engagement)
+  // Distinct completed days/user in last 30 days (for engagement active-days% component)
   const completedDays30Agg = await UserProgressModel.aggregate([
     { $unwind: '$completedSessions' },
     { $match: { 'completedSessions.completedAtUTC': { $gte: daysAgo(30) } } },
@@ -159,16 +170,19 @@ export async function getDashboardAnalyticsService(
     { $group: { _id: '$_id.userId', completedDays30: { $sum: 1 } } },
   ]);
 
-  // Latest progress doc per user (for streaks/progress/plan)
+  // Latest completion per user (for engagement recency component)
+  const lastCompletionAgg = await UserProgressModel.aggregate([
+    { $unwind: '$completedSessions' },
+    { $group: { _id: '$userId', lastCompletedAt: { $max: '$completedSessions.completedAtUTC' } } },
+  ]);
+
+  // Latest progress doc per user (for plan name)
   const latestProgressAgg = await UserProgressModel.aggregate([
     { $sort: { updatedAt: -1 } },
     {
       $group: {
         _id: '$userId',
         rehabPlanId: { $first: '$rehabPlanId' },
-        progressPercent: { $first: '$progressPercent' },
-        streakCountWeekly: { $first: '$streakCountWeekly' },
-        streakCountMonthly: { $first: '$streakCountMonthly' },
         updatedAt: { $first: '$updatedAt' },
       },
     },
@@ -224,55 +238,48 @@ export async function getDashboardAnalyticsService(
     completedDays30Map.set(String(row._id), row.completedDays30 as number);
   }
 
-  const latestProgressMap = new Map<
-    string,
-    {
-      rehabPlanId?: mongoose.Types.ObjectId;
-      progressPercent?: number;
-      streakCountWeekly?: number;
-      streakCountMonthly?: number;
-    }
-  >();
+  const lastCompletedMap = new Map<string, Date>();
+  for (const row of lastCompletionAgg) {
+    if (row.lastCompletedAt) lastCompletedMap.set(String(row._id), new Date(row.lastCompletedAt));
+  }
 
+  const latestProgressMap = new Map<string, { rehabPlanId?: mongoose.Types.ObjectId }>();
   const rehabPlanIds = new Set<string>();
   for (const row of latestProgressAgg) {
     const uid = String(row._id);
-    latestProgressMap.set(uid, {
-      rehabPlanId: row.rehabPlanId,
-      progressPercent: row.progressPercent ?? 0,
-      streakCountWeekly: row.streakCountWeekly ?? 0,
-      streakCountMonthly: row.streakCountMonthly ?? 0,
-    });
+    latestProgressMap.set(uid, { rehabPlanId: row.rehabPlanId });
     if (row.rehabPlanId) rehabPlanIds.add(String(row.rehabPlanId));
   }
 
-  // Active users (for compliance base & engagement recency)
+  // Active end-users (exclude admins)
   const activeUserDocs = await UserModel.find(
-    { status: 'active' },
-    { _id: 1, name: 1, lastLogin: 1 }
+    { status: 'active', role: 'user' },
+    { _id: 1, name: 1, lastLogin: 1, startDate: 1 }
   ).lean();
 
-  const activeUsersCount = activeUserDocs.length; // may differ slightly from earlier count
-  const activeUserIds = activeUserDocs.map(u => String(u._id));
-  const userMap = new Map(activeUserDocs.map(u => [String(u._id), u]));
+  const activeUsersCount = activeUserDocs.length;
+  const activeUserIds = activeUserDocs.map((u) => String(u._id));
+  const userMap = new Map(activeUserDocs.map((u) => [String(u._id), u]));
 
-  // Plan names (strongly typed)
-  const rehabPlans = await RehabPlanModel
-    .find(
-      { _id: { $in: Array.from(rehabPlanIds).map(id => new mongoose.Types.ObjectId(id)) } },
-      { _id: 1, name: 1 }
-    )
-    .lean<{ _id: mongoose.Types.ObjectId; name: string }[]>();
+  // Plan names
+  const rehabPlans = await RehabPlanModel.find(
+    { _id: { $in: Array.from(rehabPlanIds).map((id) => new mongoose.Types.ObjectId(id)) } },
+    { _id: 1, name: 1 }
+  ).lean<{ _id: mongoose.Types.ObjectId; name: string }[]>();
 
-  const planMap: Map<string, string> = new Map(
-    rehabPlans.map(p => [String(p._id), p.name])
-  );
+  const planMap: Map<string, string> = new Map(rehabPlans.map((p) => [String(p._id), p.name]));
 
-  // Compliance table
+  // --------------------------
+  // Least compliance (by missed days in the window)
+  // --------------------------
   const complianceRows: UserWithAnalytics[] = [];
   for (const uid of activeUserIds) {
     const completedDays = completedDaysMap.get(uid) ?? 0;
-    const complianceRate = round1((completedDays / windowDays) * 100);
+
+    // If you want to be fair to brand-new users, replace "availableDays" with min(windowDays, days since start)
+    const availableDays = windowDays;
+    const missedDays = Math.max(0, availableDays - completedDays);
+    const complianceRate = round1((completedDays / availableDays) * 100);
 
     const lp = latestProgressMap.get(uid);
     const plan = planName(lp?.rehabPlanId, planMap);
@@ -282,95 +289,88 @@ export async function getDashboardAnalyticsService(
       _id: uid,
       username: userDoc?.name ?? 'Unknown',
       plan,
-      analytics: { complianceRate },
+      analytics: { complianceRate, missedDays },
     });
   }
-  complianceRows.sort((a, b) => (a.analytics.complianceRate! - b.analytics.complianceRate!));
+
+  // Sort: most missed days first; tie-breaker lower compliance, then name
+  complianceRows.sort((a, b) => {
+    const md = (b.analytics.missedDays ?? 0) - (a.analytics.missedDays ?? 0);
+    if (md !== 0) return md;
+    const cr = (a.analytics.complianceRate ?? 0) - (b.analytics.complianceRate ?? 0);
+    if (cr !== 0) return cr;
+    return a.username.localeCompare(b.username);
+  });
+
   const leastCompliantUsers = complianceRows.slice(0, 5);
   const leastCompliantKpi: UserWithAnalytics = leastCompliantUsers[0] ?? EMPTY_USER_WITH_ANALYTICS;
 
-  // Engagement table
+  // --------------------------
+  // Engagement (v1): 85% active days (30d) + 15% recency of last completion
+  // --------------------------
   const engagementRows: UserWithAnalytics[] = [];
   for (const uid of activeUserIds) {
     const completed30 = completedDays30Map.get(uid) ?? 0;
-    const completionRate = clamp((completed30 / 30) * 100, 0, 100);
+    const activeDaysPct = clamp((completed30 / 30) * 100, 0, 100);
+
+    // recency by days since last completed session
+    const last = lastCompletedMap.get(uid);
+    const daysSinceLast =
+      last ? Math.max(0, Math.floor((Date.now() - last.getTime()) / 86400000)) : 30;
+    const recency = clamp(100 - daysSinceLast * 5, 0, 100);
+
+    const engagementScore = Math.round(0.85 * activeDaysPct + 0.15 * recency);
 
     const lp = latestProgressMap.get(uid);
-    const weekly = lp?.streakCountWeekly ?? 0;
-    const monthly = lp?.streakCountMonthly ?? 0;
-    const streakNorm = Math.max(clamp((weekly / 7) * 100, 0, 100), clamp((monthly / 30) * 100, 0, 100));
-
-    const progress = clamp(lp?.progressPercent ?? 0, 0, 100);
-
-    const lastLogin = userMap.get(uid)?.lastLogin ? new Date(userMap.get(uid)!.lastLogin) : null;
-    const daysSinceLogin = lastLogin ? Math.max(0, Math.floor((Date.now() - lastLogin.getTime()) / 86400000)) : 30;
-    const recency = clamp(100 - daysSinceLogin * 5, 0, 100);
-
-    const engagementScore = Math.round(
-      0.5 * completionRate +
-      0.2 * streakNorm +
-      0.2 * progress +
-      0.1 * recency
-    );
-
     const plan = planName(lp?.rehabPlanId, planMap);
     const username = userMap.get(uid)?.name ?? 'Unknown';
 
-    engagementRows.push({
-      _id: uid,
-      username,
-      plan,
-      analytics: { engagementScore },
-    });
+    engagementRows.push({ _id: uid, username, plan, analytics: { engagementScore } });
   }
   engagementRows.sort((a, b) => (b.analytics.engagementScore! - a.analytics.engagementScore!));
   const topUsersByEngagement = engagementRows.slice(0, 5);
 
+  // --------------------------
   // Session completion chart
+  // --------------------------
   const byDayMap = new Map<string, number>();
   for (const row of sessionByDayAgg) {
     byDayMap.set(String(row.day), row.completed as number);
   }
-  const sessionCompletion = lastNDaysIso.map(day => {
+  const sessionCompletion = lastNDaysIso.map((day) => {
     const completed = byDayMap.get(day) ?? 0;
-    const expected = activeUsersCount; // 1 expected per active user per day (Phase 1)
+    const expected = activeUsersCount; // 1 expected per active end-user per day (v1)
     const missed = Math.max(0, expected - completed);
     return { day, completed, missed };
   });
 
+  // --------------------------
   // User growth (fill missing months)
+  // --------------------------
   const months: string[] = [];
   for (let i = growthMonths - 1; i >= 0; i--) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
     months.push(monthKey(d));
   }
-  const growthMap = new Map<string, number>((userGrowthAgg as any[]).map(r => [r.ym as string, r.users as number]));
-  const userGrowth = months.map(ym => ({ month: monthLabel(ym), users: growthMap.get(ym) ?? 0 }));
+  const growthMap = new Map<string, number>(
+    (userGrowthAgg as any[]).map((r) => [r.ym as string, r.users as number])
+  );
+  const userGrowth = months.map((ym) => ({ month: monthLabel(ym), users: growthMap.get(ym) ?? 0 }));
 
+  // --------------------------
   // KPIs
+  // --------------------------
   const highestIrritability = highestIrrAgg[0] ?? { user: '—', value: 0 };
   const lowestResilience = lowestResAgg[0] ?? { user: '—', value: 0 };
   const leastCompliant = {
     user: leastCompliantKpi.username,
-    value: leastCompliantKpi.analytics.complianceRate ?? 0,
+    value: leastCompliantKpi.analytics.missedDays ?? 0, // show "missed days" in the KPI
   };
 
   const payload: DashboardAnalytics = {
-    kpi: {
-      totalUsers,
-      activeUsers,
-      highestIrritability,
-      lowestResilience,
-      leastCompliant,
-    },
-    charts: {
-      userGrowth,
-      sessionCompletion,
-    },
-    tables: {
-      leastCompliantUsers,
-      topUsersByEngagement,
-    },
+    kpi: { totalUsers, activeUsers, highestIrritability, lowestResilience, leastCompliant },
+    charts: { userGrowth, sessionCompletion },
+    tables: { leastCompliantUsers, topUsersByEngagement },
     meta: {
       windowDays,
       irritabilityDays,
@@ -380,6 +380,6 @@ export async function getDashboardAnalyticsService(
   };
 
   setCache(cacheKey, payload);
-  
+
   return payload;
 }
