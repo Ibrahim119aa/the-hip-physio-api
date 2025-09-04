@@ -13,7 +13,6 @@ import sessionRoutes from './routes/session.routes';
 import userProgressRoutes from './routes/userProgess.routes';
 import educationalVideosRoutes from './routes/educationalVideos.routes';
 import notificationRoutes from './routes/notification.routes';
-import userNoteRoutes from './routes/userNote.routes';
 import weeklyResilienceCheckinRoutes from './routes/weeklyPsychologicalCheckIn.routes'
 import editableContentRoutes from './routes/editableConten.routes';
 import dashboardRouter from './routes/dashboard.routes';
@@ -56,7 +55,6 @@ app.use('/api/session', sessionRoutes);
 app.use('/api/user-progress', userProgressRoutes);
 app.use('/api/educational-videos', educationalVideosRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/user-notes', userNoteRoutes)
 app.use('/api/weekly-resilience-checkin', weeklyResilienceCheckinRoutes)
 app.use('/api/editable-content', editableContentRoutes)
 app.use('/api/dashboard', dashboardRouter)

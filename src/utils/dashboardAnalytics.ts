@@ -52,7 +52,6 @@ const setCache = (key: string, payload: DashboardAnalytics, ttlMs = DEFAULT_TTL_
   CACHE.set(key, { expiresAt: Date.now() + ttlMs, payload });
 };
 
-// --- Helpers to keep types strict ---
 const planName = (
   planId?: mongoose.Types.ObjectId | string,
   planMap?: Map<string, string>
@@ -70,6 +69,127 @@ const EMPTY_USER_WITH_ANALYTICS: UserWithAnalytics = {
 };
 
 // ------------------------------
+// Date helpers (local-day based)
+// ------------------------------
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function diffDaysLocal(a: Date, b: Date): number {
+  // returns whole calendar-day difference: b - a
+  const A = startOfLocalDay(a).getTime();
+  const B = startOfLocalDay(b).getTime();
+  const MS = 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.floor((B - A) / MS));
+}
+
+// ------------------------------
+// Simplified compliance: gap-based missed days
+// ------------------------------
+type ComplianceResult = {
+  userId: string;
+  rehabPlanId: string;
+  planName: string;
+  missedInWindow: number;      // min(daysGap, remainingTotal, windowDays)
+  availableInWindow: number;   // missed + (completed today ? 1 : 0)
+  complianceRate: number;      // (completedToday ? 1 : 0) / availableInWindow
+  remainingTotal: number;
+  isPlanComplete: boolean;
+};
+
+async function computeUserComplianceGapBased(
+  userId: string,
+  windowDays: number,
+  todayLocal: Date
+): Promise<ComplianceResult | null> {
+  const progress = await UserProgressModel
+    .findOne({ userId })
+    .sort({ updatedAt: -1 })
+    .lean<any>();
+  if (!progress) return null;
+
+  const plan = await RehabPlanModel
+    .findById(progress.rehabPlanId)
+    .select('name schedule')
+    .lean<any>();
+  if (!plan) return null;
+
+  // total assigned sessions ("days") from schedule
+  const totalAssignedDays = (plan.schedule ?? []).reduce((acc: number, sched: any) => {
+    return acc + (Array.isArray(sched.sessions) ? sched.sessions.length : 0);
+  }, 0);
+
+  const completedSessions = Array.isArray(progress.completedSessions) ? progress.completedSessions : [];
+  const completedTotal = completedSessions.length;
+  const remainingTotal = Math.max(0, totalAssignedDays - completedTotal);
+  const isPlanComplete = remainingTotal === 0;
+
+  if (isPlanComplete) {
+    return {
+      userId: String(progress.userId),
+      rehabPlanId: String(progress.rehabPlanId),
+      planName: plan.name ?? '—',
+      missedInWindow: 0,
+      availableInWindow: 0,
+      complianceRate: 100,
+      remainingTotal,
+      isPlanComplete: true,
+    };
+  }
+
+  // detect completion today
+  const today = startOfLocalDay(todayLocal);
+  const completedToday = completedSessions.some((cs: any) => {
+    if (cs?.dayKey) {
+      const [y, m, d] = cs.dayKey.split('-').map(Number);
+      const c = new Date(y, (m - 1), d);
+      return c.getTime() === today.getTime();
+    }
+    const c = startOfLocalDay(new Date(cs.completedAtLocal ?? cs.completedAtUTC));
+    return c.getTime() === today.getTime();
+  });
+
+  // last completed session date (local)
+  let lastCompletedAtLocal: Date | null = null;
+  if (completedSessions.length > 0) {
+    const last = completedSessions.reduce((max: any, cur: any) =>
+      (!max || new Date(cur.completedAtUTC) > new Date(max.completedAtUTC)) ? cur : max, null);
+    lastCompletedAtLocal = last ? new Date(last.completedAtLocal ?? last.completedAtUTC) : null;
+  }
+
+  // days gap since last completion (or since startDate if never completed)
+  let daysGap = 0;
+  if (lastCompletedAtLocal) {
+    daysGap = diffDaysLocal(lastCompletedAtLocal, today);
+  } else {
+    const userDoc = await UserModel.findById(userId).select('startDate').lean();
+    if (userDoc?.startDate) daysGap = diffDaysLocal(new Date(userDoc.startDate), today);
+    else daysGap = 0; // brand-new users aren't penalized pre-enrollment
+  }
+
+  // Missed = gap, capped by remaining sessions and window
+  const missedInWindow = Math.max(0, Math.min(daysGap, remainingTotal, windowDays));
+
+  // Available = missed + (if completed today, count that as an available day with completion)
+  const completedContribution = completedToday ? 1 : 0;
+  const availableInWindow = missedInWindow + completedContribution;
+
+  const complianceRate = availableInWindow > 0
+    ? round1((completedContribution / availableInWindow) * 100)
+    : 100;
+
+  return {
+    userId: String(progress.userId),
+    rehabPlanId: String(progress.rehabPlanId),
+    planName: plan.name ?? '—',
+    missedInWindow,
+    availableInWindow,
+    complianceRate,
+    remainingTotal,
+    isPlanComplete: false,
+  };
+}
+
+// ------------------------------
 // Main service
 // ------------------------------
 export async function getDashboardAnalyticsService(
@@ -77,6 +197,7 @@ export async function getDashboardAnalyticsService(
   irritabilityDays = 30,
   growthMonths = 12
 ): Promise<DashboardAnalytics> {
+
   // clamp inputs
   windowDays = clamp(windowDays || 7, 1, 60);
   irritabilityDays = clamp(irritabilityDays || 30, 7, 180);
@@ -154,7 +275,7 @@ export async function getDashboardAnalyticsService(
     { $project: { _id: 0, user: '$user.name', value: { $round: ['$avgRes', 1] } } },
   ]);
 
-  // Distinct completed days/user in window
+  // Distinct completed days/user in window (for engagement & charts)
   const completedDaysAgg = await UserProgressModel.aggregate([
     { $unwind: '$completedSessions' },
     { $match: { 'completedSessions.completedAtUTC': { $gte: fromWindow } } },
@@ -261,7 +382,7 @@ export async function getDashboardAnalyticsService(
   const activeUserIds = activeUserDocs.map((u) => String(u._id));
   const userMap = new Map(activeUserDocs.map((u) => [String(u._id), u]));
 
-  // Plan names
+  // Plan names (for engagement table)
   const rehabPlans = await RehabPlanModel.find(
     { _id: { $in: Array.from(rehabPlanIds).map((id) => new mongoose.Types.ObjectId(id)) } },
     { _id: 1, name: 1 }
@@ -270,31 +391,35 @@ export async function getDashboardAnalyticsService(
   const planMap: Map<string, string> = new Map(rehabPlans.map((p) => [String(p._id), p.name]));
 
   // --------------------------
-  // Least compliance (by missed days in the window)
+  // Least compliance (gap-based missed days) + FILTER OUT ZERO MISSES
   // --------------------------
   const complianceRows: UserWithAnalytics[] = [];
+  const todayLocal = new Date();
+
   for (const uid of activeUserIds) {
-    const completedDays = completedDaysMap.get(uid) ?? 0;
+    const result = await computeUserComplianceGapBased(uid, windowDays, todayLocal);
+    if (!result) continue;
+    if (result.isPlanComplete) continue; // exclude fully completed
 
-    // If you want to be fair to brand-new users, replace "availableDays" with min(windowDays, days since start)
-    const availableDays = windowDays;
-    const missedDays = Math.max(0, availableDays - completedDays);
-    const complianceRate = round1((completedDays / availableDays) * 100);
-
-    const lp = latestProgressMap.get(uid);
-    const plan = planName(lp?.rehabPlanId, planMap);
     const userDoc = userMap.get(uid);
-
     complianceRows.push({
       _id: uid,
       username: userDoc?.name ?? 'Unknown',
-      plan,
-      analytics: { complianceRate, missedDays },
+      plan: result.planName ?? '—',
+      analytics: {
+        complianceRate: round1(result.complianceRate),
+        missedDays: result.missedInWindow,
+      },
     });
   }
 
-  // Sort: most missed days first; tie-breaker lower compliance, then name
-  complianceRows.sort((a, b) => {
+  // >>> filter out 0-miss users <<<
+  const leastCompliancePool = complianceRows.filter(
+    (r) => (r.analytics.missedDays ?? 0) > 0
+  );
+
+  // Sort: most missed first; tie-breaker lower compliance, then name
+  leastCompliancePool.sort((a, b) => {
     const md = (b.analytics.missedDays ?? 0) - (a.analytics.missedDays ?? 0);
     if (md !== 0) return md;
     const cr = (a.analytics.complianceRate ?? 0) - (b.analytics.complianceRate ?? 0);
@@ -302,7 +427,7 @@ export async function getDashboardAnalyticsService(
     return a.username.localeCompare(b.username);
   });
 
-  const leastCompliantUsers = complianceRows.slice(0, 5);
+  const leastCompliantUsers = leastCompliancePool.slice(0, 5);
   const leastCompliantKpi: UserWithAnalytics = leastCompliantUsers[0] ?? EMPTY_USER_WITH_ANALYTICS;
 
   // --------------------------
@@ -339,7 +464,7 @@ export async function getDashboardAnalyticsService(
   }
   const sessionCompletion = lastNDaysIso.map((day) => {
     const completed = byDayMap.get(day) ?? 0;
-    const expected = activeUsersCount; // 1 expected per active end-user per day (v1)
+    const expected = activeUsersCount; // 1 expected per active user per day (v1)
     const missed = Math.max(0, expected - completed);
     return { day, completed, missed };
   });
@@ -364,7 +489,7 @@ export async function getDashboardAnalyticsService(
   const lowestResilience = lowestResAgg[0] ?? { user: '—', value: 0 };
   const leastCompliant = {
     user: leastCompliantKpi.username,
-    value: leastCompliantKpi.analytics.missedDays ?? 0, // show "missed days" in the KPI
+    value: leastCompliantKpi.analytics.missedDays ?? 0,
   };
 
   const payload: DashboardAnalytics = {
@@ -380,6 +505,5 @@ export async function getDashboardAnalyticsService(
   };
 
   setCache(cacheKey, payload);
-
   return payload;
 }
