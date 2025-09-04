@@ -1,4 +1,3 @@
-import { agenda } from './jobs/agenda';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -17,14 +16,10 @@ import notificationRoutes from './routes/notification.routes';
 import userNoteRoutes from './routes/userNote.routes';
 import weeklyResilienceCheckinRoutes from './routes/weeklyPsychologicalCheckIn.routes'
 import editableContentRoutes from './routes/editableConten.routes';
-// import { defineSendNotificationJob } from './jobs/sendNotification';
+import dashboardRouter from './routes/dashboard.routes';
+import userNotificationsRoutes from './routes/userNotifications.routes';
 
 const app = express();
-
-// (async () => {
-//   defineSendNotificationJob(agenda);
-//   await agenda.start();
-// })();
 
 app.use(morgan('dev'))
 
@@ -64,6 +59,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/user-notes', userNoteRoutes)
 app.use('/api/weekly-resilience-checkin', weeklyResilienceCheckinRoutes)
 app.use('/api/editable-content', editableContentRoutes)
+app.use('/api/dashboard', dashboardRouter)
+app.use('/api/me', userNotificationsRoutes)
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
