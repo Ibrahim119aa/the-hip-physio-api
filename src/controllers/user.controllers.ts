@@ -446,8 +446,9 @@ export const updateUserProfileHandler = async(
     if (!user) throw new ErrorHandler(404, 'User not found');
 
     if(file) { 
-      const uploadImage = uploadProfileImageToCloudinary(file);
-      user.profile_photo = await uploadImage;
+      const { url } = await uploadProfileImageToCloudinary(file);
+      
+      user.profile_photo = url;
     }
 
     // Update user profile

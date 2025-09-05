@@ -20,7 +20,7 @@ export const createAndScheduleNotificationHandler = async (req: Request, res: Re
     const when = scheduleAt ? new Date(scheduleAt) : null;
     const status: 'queued'|'scheduled' = when && when.getTime() > Date.now() ? 'scheduled' : 'queued';
 
-    const notif = await NotificationsModel.create({
+    const notifications = await NotificationsModel.create({
       title,
       body,
       data: data || {},
@@ -31,15 +31,15 @@ export const createAndScheduleNotificationHandler = async (req: Request, res: Re
     });
 
     if (status === 'scheduled') {
-      await agenda.schedule(notif.scheduleAt!, 'send-notification', { notificationId: notif._id.toString() });
+      await agenda.schedule(notifications.scheduleAt!, 'send-notification', { notificationId: notifications._id.toString() });
     } else {
-      await agenda.now('send-notification', { notificationId: notif._id.toString() });
+      await agenda.now('send-notification', { notificationId: notifications._id.toString() });
     }
 
     res.json({
       success: true,
       message: status === 'scheduled' ? 'Notification scheduled' : 'Notification queued for sending',
-      notificationId: notif._id
+      notificationId: notifications._id
     });
   } catch (error) {
     console.error('Error in createAndScheduleNotification:', error)
@@ -52,23 +52,43 @@ export const cancelNotificationHandler = async (req: Request, res: Response, nex
     
     const { id } = req.params;
 
-    const notif = await NotificationsModel.findById(id);
+    const notifications = await NotificationsModel.findById(id);
     
-    if (!notif) throw new ErrorHandler(404,'Notification not found');
+    if (!notifications) throw new ErrorHandler(404,'Notification not found');
     
-    if (notif.status !== 'scheduled') throw new ErrorHandler(400, 'Notification is not scheduled');
+    if (notifications.status !== 'scheduled') throw new ErrorHandler(400, 'Notification is not scheduled');
 
     await agenda.cancel({ 'data.notificationId': id });
 
-    notif.status = 'canceled';
-    await notif.save();
+    notifications.status = 'canceled';
+    await notifications.save();
 
-    res.json({ success: true, message: 'Notification canceled' });
+    res.json({ 
+      success: true, 
+      message: 'Notification canceled' 
+    });
+
   } catch (error) {
     console.error('Error in cancelNotification:', error); 
     next(error); 
   }
 };
+
+export const getAllNotificationsHandler = async(req: Request, res: Response, next: NextFunction ) => {
+  try {
+    const notifications = await NotificationModel.find().sort({ createdAt: -1 });
+    res.json({ 
+      success: true, 
+      mssage: "Notifications fetched",
+      notifications 
+    });
+
+    
+  } catch (error) {
+    console.error('Error in getAllNotifications:', error);
+    next(error);
+  }
+}
 
 // one-shot direct test to a token
 export const testSendToTokenHandler = async (req: Request, res: Response, next: NextFunction) => {

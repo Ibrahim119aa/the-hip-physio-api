@@ -10,6 +10,7 @@ const router = Router()
 router.route("/")
   .post(isAdminAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, validateVideoUpload, addEducationalVideoHandler)
   .get(getAllEducationalVideosHandler);
+  
 router.route("/:id")
   .put(isAdminAuthenticated, hasRole('admin'), uploadVideoAndThumbnail, updateEducationalVideoHandler)
   .delete(isAdminAuthenticated, hasRole('admin'), deleteEducationalVideoHandler);
