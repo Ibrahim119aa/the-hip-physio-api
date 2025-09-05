@@ -26,7 +26,7 @@ router.route("/login").post(userLoginHandler)
 router.route("/profile")
   .get(isUserAuthenticated, getUserProfileHandler)
   .put(isUserAuthenticated, uploadProfileImage, validateProfileImageUpload, updateUserProfileHandler);
-router.route("/notification-picklist").get(isAdminAuthenticated, getUsersForNotificationsHandler);
+router.route("/notification-picklist").get(isAdminAuthenticated, hasRole("adimn"), getUsersForNotificationsHandler);
 router.route("/all").get(getAllUsersHandler);
 
 // Admin user add, updated and delete routes

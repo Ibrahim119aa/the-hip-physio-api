@@ -9,8 +9,8 @@ import { isUserAuthenticated } from '../middlewares/isAuthenticated.middleware';
 
 const router = Router();
 
-router.get('/notifications', isUserAuthenticated, listMyNotifications);
-router.patch('/notifications/:id/read', isUserAuthenticated, markNotificationRead);
-router.patch('/notifications/read-all', isUserAuthenticated, markAllRead);
+router.route('/notifications').get(isUserAuthenticated, listMyNotifications);
+router.route('/notifications/:id/read').patch(isUserAuthenticated, markNotificationRead);
+router.route('/notifications/read-all').patch(isUserAuthenticated, markAllRead);
 
 export default router;

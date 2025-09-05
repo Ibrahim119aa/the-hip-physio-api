@@ -153,7 +153,6 @@ export const validateProfileImageUpload = (
 };
 
 
-
 // Extend Request interface
 declare global {
   namespace Express {
