@@ -61,8 +61,6 @@ export const uploadProfileImage = upload.single('profileImage');
 // Validation middleware for exercise uploads
 export const validateVideoUpload = (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log('Received files inside video middleware :', req.files);
-    console.log('Request body inside video middleware :', req.body);
     
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     

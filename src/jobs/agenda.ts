@@ -1,32 +1,40 @@
-// import Agenda from 'agenda';
-// import config from '../config/config';
-
-// const mongoUrl = config.mongoURI as string;
-
-// export const agenda = new Agenda({
-//   db: { address: mongoUrl, collection: 'jobs_notifications' },
-//   defaultLockLifetime: 10 * 60 * 1000, // 10m
-// });
-
-
-// src/jobs/agenda.ts
 import Agenda from 'agenda';
-import config from '../config/config';
+import mongoose from 'mongoose';
 import { defineSendNotificationJob } from './sendNotification';
 
-const mongoUrl = config.mongoURI as string;
-
+// Single Agenda instance
 export const agenda = new Agenda({
-  db: { address: mongoUrl, collection: 'jobs_notifications' },
-  defaultLockLifetime: 10 * 60 * 1000, // 10m
+  defaultLockLifetime: 10 * 60 * 1000, // 10 minutes
 });
 
-// Define jobs ONCE, right after constructing Agenda.
-// Android-only for now: either pass a channel id, or omit it.
-defineSendNotificationJob(agenda, {
-  // If your app created a channel, set it via env and pass it here:
-  // androidChannelId: process.env.ANDROID_CHANNEL_ID,
-  // If you don't know the channel yet, just leave it out and the app will use a fallback channel.
-});
+let initialized = false;
+
+// Call this after your Mongoose connection is established
+export async function initAgenda() {
+  if (initialized) return agenda;
+
+  if (mongoose.connection.readyState !== 1) {
+    throw new Error('initAgenda called before Mongo is connected');
+  }
+
+  const db = mongoose.connection.db;
+  if (!db) throw new Error('Mongoose connected but `connection.db` is undefined');
+
+  // Bind Agenda to the existing Db (no second connection)
+  const collectionName = 'jobs_notifications';
+  agenda.mongo(db, collectionName);
+
+  // Helpful boot log
+  console.log(`[Agenda] binding to db="${db.databaseName}" collection="${collectionName}"`);
+
+  // Define jobs after binding
+  defineSendNotificationJob(agenda, {});
+
+  await agenda.start();
+  initialized = true;
+  console.log('🚀 [Agenda] started');
+
+  return agenda;
+}
 
 export default agenda;

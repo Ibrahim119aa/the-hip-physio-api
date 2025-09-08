@@ -147,7 +147,6 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
     } else {
       // Create NEW USER with required name field
       const generatedPassword = createPassword();
-      console.log('generatedPassword', generatedPassword);
       
       const newUser = new UserModel({
         email,

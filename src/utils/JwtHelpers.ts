@@ -26,16 +26,13 @@ export const generateTokenAndSaveCookies = (
   res: Response
 ): string => {
   
-  const token = jwt.sign(payload, process.env.JWT_SECRET!, {
-    expiresIn: '24h'
-  });
+  const token = jwt.sign(payload, process.env.JWT_SECRET!);
 
   // Set HTTP-only cookie (secure, SameSite)
   res.cookie('aToken', token, {
     httpOnly: true,
     secure: config.environment === 'production', // HTTPS only in production
     sameSite: 'lax', // or 'lax' for cross-site compatibility
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
     path: '/', // Accessible across all routes
   });
 
