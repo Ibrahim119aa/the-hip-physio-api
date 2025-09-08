@@ -70,9 +70,7 @@ export const addExerciseHandler = async (
         name: { $regex: new RegExp(`^${parsed.data.name}$`, "i") },
       }).session(session);
 
-      if (existing) {
-        throw new ErrorHandler(409, "Exercise with this name already exists");
-      }
+      if (existing) throw new ErrorHandler(409, "Exercise with this name already exists");
 
       // Create using the session
       await ExerciseModel.create([{
@@ -88,7 +86,8 @@ export const addExerciseHandler = async (
           : [],
         bodyPart: parsed.data.bodyPart,
         difficulty: parsed.data.difficulty,
-        estimatedDuration: uploadedVideo!.duration,
+        estimatedDuration: parsed.data.estimatedDuration ?? uploadedVideo!.duration,
+
         createdBy: req.adminId, // ensure this exists on req
       }], { session });
     });
@@ -122,112 +121,6 @@ export const addExerciseHandler = async (
     await Promise.all([safeUnlink(videoTemp), safeUnlink(thumbTemp)]);
   }
 };
-
-
-// Add new exercise with atomicity
-// export const addExerciseHandler = async (
-//   req: Request<{}, {}, any>,
-//   res: Response,
-//   next: NextFunction
-// ) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   // temp local paths from Multer diskStorage (for final cleanup)
-//   const files = req.files as { [k: string]: Express.Multer.File[] } | undefined;
-//   const videoFile = files?.video?.[0];
-//   const thumbFile = files?.thumbnail?.[0];
-//   const videoTemp = (videoFile as any)?.path as string | undefined;
-//   const thumbTemp = (thumbFile as any)?.path as string | undefined;
-
-//   let uploadedVideo: UploadVideoResult | null = null;
-//   let uploadedThumb: UploadThumbResult | null = null;
-//   let thumbWasUploaded = false;
-
-//   try {
-//     console.log("Starting addExerciseHandler...");
-//     const parsed = createExerciseSchema.safeParse(req.body);
-//     if (!parsed.success) {
-//       const errorMessages = parsed.error.issues.map(i => i.message).join(", ");
-//       throw new ErrorHandler(400, errorMessages);
-//     }
-
-//     if (!videoFile) throw new ErrorHandler(400, "Video file is required");
-
-//     const existing = await ExerciseModel.findOne({
-//       name: { $regex: new RegExp(`^${parsed.data.name}$`, "i") },
-//     }).session(session);
-//     if (existing) throw new ErrorHandler(409, "Exercise with this name already exists");
-
-//     console.log("Uploading video to Cloudinary...");
-//     const subFolder = "exercises"
-//     uploadedVideo = await uploadVideoToCloudinary(videoFile, subFolder);
-
-//     if (thumbFile) {
-//       console.log("Uploading thumbnail to Cloudinary...");
-//       uploadedThumb = await uploadThumbnailToCloudinary(thumbFile, subFolder);
-//       thumbWasUploaded = true;
-//     }
-
-//     const thumbnailUrl = uploadedThumb
-//       ? uploadedThumb.url
-//       : uploadedVideo.url.replace("/upload/", "/upload/so_2/").replace(".mp4", ".jpg");
-
-//       console.log('uploadedVideo', uploadedVideo);
-//       console.log('user ID', req.userId);
-      
-
-//     const newExercise = new ExerciseModel({
-//       name: parsed.data.name,
-//       description: parsed.data.description,
-//       videoUrl: uploadedVideo.url,
-//       thumbnailUrl,
-//       reps: parsed.data.reps,
-//       sets: parsed.data.sets,
-//       category: new mongoose.Types.ObjectId(parsed.data.category),
-//       tags: parsed.data.tags
-//         ? parsed.data.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
-//         : [],
-//       bodyPart: parsed.data.bodyPart,
-//       difficulty: parsed.data.difficulty,
-//       estimatedDuration: uploadedVideo.duration,
-//       createdBy: req.adminId,
-//     });
-
-//     await newExercise.save({ session });
-//     await session.commitTransaction();
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Exercise added successfully",
-//       data: newExercise,
-//     });
-//   } catch (error) {
-//     console.error("addExerciseHandler error:", error);
-//     await session.abortTransaction();
-//     console.error("Transaction aborted due to error");
-
-//     // Cloudinary rollback (only if we actually uploaded)
-//     try {
-//       if (uploadedVideo?.publicId) {
-//         await deleteFromCloudinary(uploadedVideo.publicId, "video");
-//         console.log("Rolled back video on Cloudinary");
-//       }
-//       if (thumbWasUploaded && uploadedThumb?.publicId) {
-//         await deleteFromCloudinary(uploadedThumb.publicId, "image");
-//         console.log("Rolled back thumbnail on Cloudinary");
-//       }
-//     } catch (cleanupErr) {
-//       console.error("Cloudinary cleanup failed (ignored):", cleanupErr);
-//     }
-
-//     next(error);
-//   } finally {
-//     session.endSession();
-//     // local temp cleanup (always)
-//     await Promise.all([safeUnlink(videoTemp), safeUnlink(thumbTemp)]);
-//   }
-// };
 
 export const updateExerciseHandler = async (
   req: Request<TExerciseParams, {}, TUpdateExerciseRequest>,
@@ -359,114 +252,6 @@ export const updateExerciseHandler = async (
     await Promise.all([safeUnlink(videoTempPath), safeUnlink(thumbTempPath)]);
   }
 };
-
-// export const updateExerciseHandler = async (req: Request<TExerciseParams, {}, TUpdateExerciseRequest>, res: Response, next: NextFunction) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-//   console.log('startedupdating');
-  
-//   let uploadedVideoUrl: TUploadedVideoUrl | null = null;
-//   let uploadedThumbnailUrl = '';
-
-//   try {
-//     const parsedParams = ExerciseParamsSchema.safeParse(req.params);
-//     const parsedbody = updateExerciseSchema.safeParse(req.body);
-
-//     if(!parsedParams.success) {
-//       const erroMessages = parsedParams.error.issues.map((issue: any) => issue.message).join(", ");
-//       throw new ErrorHandler(400, erroMessages);
-//     }
-
-//     if(!parsedbody.success) {
-//       const erroMessages = parsedbody.error.issues.map((issue: any) => issue.message).join(", ");
-//       throw new ErrorHandler(400, erroMessages);
-//     }
-    
-//     const { id } = parsedParams.data;
-//     const updateData = parsedbody.data;
-
-//     if (!id) throw new ErrorHandler(400, 'Exercise ID is required');
-
-//     const existingExercise = await ExerciseModel.findById(id).session(session);
-//     if (!existingExercise) throw new ErrorHandler(404, 'Exercise not found');
-
-//     // Check for duplicate name
-//     if (updateData.name && updateData.name !== existingExercise.name) {
-//       const duplicateExercise = await ExerciseModel.findOne({ name: updateData.name }).session(session);
-//       if (duplicateExercise) throw new ErrorHandler(409, 'Exercise with this name already exists');
-//     }
-
-//     // Handle video upload (if provided)
-//     if (req.videoFile) {
-//       // Delete old video
-//       if (existingExercise.videoUrl) {
-//         const publicId = extractPublicIdFromUrl(existingExercise.videoUrl);
-//         if (publicId) await deleteFromCloudinary(publicId, 'video');
-//       }
-
-//       // Upload new video
-//       uploadedVideoUrl = await uploadVideoToCloudinary(req.videoFile);
-//       updateData.videoUrl = uploadedVideoUrl.url;
-//       updateData.estimatedDuration = uploadedVideoUrl.duration;
-//     }
-
-//     // Handle thumbnail (upload new or generate from video)
-//     if (req.thumbnailFile) {
-//       // Delete old thumbnail
-//       if (existingExercise.thumbnailUrl) {
-//         const publicId = extractPublicIdFromUrl(existingExercise.thumbnailUrl);
-//         if (publicId) await deleteFromCloudinary(publicId, 'image');
-//       }
-
-//       // Upload new thumbnail
-//       uploadedThumbnailUrl = await uploadThumbnailToCloudinary(req.thumbnailFile);
-//       updateData.thumbnailUrl = uploadedThumbnailUrl;
-//     } else if (updateData.videoUrl) {
-//       // Generate thumbnail from video URL (only if videoUrl is updated)
-//       updateData.thumbnailUrl = updateData.videoUrl
-//         .replace('/upload/', '/upload/so_2/')
-//         .replace('.mp4', '.jpg');
-//     } // else: keep existing thumbnail
-
-//     const updatedExercise = await ExerciseModel.findByIdAndUpdate(
-//       id,
-//       updateData,
-//       { new: true, runValidators: true, session }
-//     );
-
-//     if (!updatedExercise) throw new ErrorHandler(404, 'Exercise not updated');
-//     await session.commitTransaction();
-
-//     res.status(200).json({
-//       success: true,
-//       message: 'Exercise updated successfully',
-//       data: updatedExercise
-//     });
-
-//   } catch (error) {
-//     await session.abortTransaction();
-    
-//     // Cleanup uploaded files on failure
-//     if (uploadedVideoUrl || uploadedThumbnailUrl) {
-//       try {
-//         if (uploadedVideoUrl) {
-//           const videoPublicId = extractPublicIdFromUrl(uploadedVideoUrl.url);
-//           if (videoPublicId) await deleteFromCloudinary(videoPublicId, 'video');
-//         }
-//         if (uploadedThumbnailUrl) {
-//           const thumbnailPublicId = extractPublicIdFromUrl(uploadedThumbnailUrl);
-//           if (thumbnailPublicId) await deleteFromCloudinary(thumbnailPublicId, 'image');
-//         }
-//       } catch (cleanupError) {
-//         console.error('Cleanup failed:', cleanupError);
-//       }
-//     }
-
-//     next(error);
-//   } finally {
-//     session.endSession();
-//   }
-// };
 
 // Delete exercise
 export const deleteExerciseHandler = async (

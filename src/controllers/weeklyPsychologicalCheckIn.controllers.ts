@@ -43,7 +43,6 @@ export const createWeeklyPsychologicalCheckIn = async (req: Request, res: Respon
 export const getWeeklyPsychologicalCheckIn = async(req: Request, res: Response, next: NextFunction) => {
   try {
     const { rehabPlanId, week } = req.body;
-    console.log(req.body);
     
     if (!rehabPlanId || !week) {
       throw new ErrorHandler(400, 'Missing required fields')

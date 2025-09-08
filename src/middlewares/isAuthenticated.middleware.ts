@@ -40,8 +40,6 @@
 const isAdminAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const adminToken = req.cookies.aToken;
-    console.log('adminToken', adminToken);
-    
 
     if (!adminToken) {
       throw new ErrorHandler(401, 'Please login as an admin.');

@@ -290,7 +290,6 @@ export const getUserProgressHandler = async(req: Request, res: Response, next: N
 export const getUserStreakHanlder = async(req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId, rehabPlanId } = req.params;
-    console.log('userId', userId, 'rehabPlanId', rehabPlanId);
     
     if (!userId || !rehabPlanId) {
       throw new ErrorHandler(400, 'required data is missing.');
@@ -592,9 +591,6 @@ export const getUserLogbookHandler = async (req: Request, res: Response, next: N
 export const getCompletedWithResilience = async (req: Request, res: Response) => {
   try {
     const { planId, userId } = req.params;
-    console.log('planId', planId);
-    console.log('userId', userId);
-    
 
     // 1) Pull the plan with sessions/exercises (for names & mapping week/day)
     const plan = await RehabPlanModel.findById(planId)
@@ -658,8 +654,7 @@ export const getCompletedWithResilience = async (req: Request, res: Response) =>
       userId: userId,
       rehabPlanId: planId,
     }).lean<any>(); 
-    console.log('progress', progress);
-    
+       
     const completedExerciseArr = progress?.completedExercises || [];
     const completedSessionArr = progress?.completedSessions || [];
     const weeklyStreak = progress?.streakCountWeekly;

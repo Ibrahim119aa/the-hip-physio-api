@@ -26,7 +26,7 @@ export const addEducationalVideoHandler = async (
 ) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-
+  
   const files = req.files as { [k: string]: Express.Multer.File[] } | undefined;
   const videoFile = files?.video?.[0];
   const thumbFile = files?.thumbnail?.[0];
@@ -40,7 +40,7 @@ export const addEducationalVideoHandler = async (
 
   try {
     const parsedBody = createEducationalVideoSchema.safeParse(req.body);
-  
+    
     if(!parsedBody.success) {
       const errorMessages= parsedBody.error.issues.map((issue) => issue.message).join(", ");
       throw new ErrorHandler(400, errorMessages);
@@ -67,14 +67,13 @@ export const addEducationalVideoHandler = async (
     const thumbnailUrl = uploadedThumb
       ? uploadedThumb.url
       : uploadedVideo.url.replace("/upload/", "/upload/so_2/").replace(".mp4", ".jpg");
-    console.log('categories ++++++++++', parsedBody.data.categories);
     
     const doc = new EducationalVideoModel({
       title: parsedBody.data.title,
       description: parsedBody.data.description,
       videoUrl: uploadedVideo.url,
       thumbnailUrl,
-      duration: uploadedVideo.duration,
+      duration: parsedBody.data.duration ?? uploadedVideo!.duration,
       categories: parsedBody.data.categories,
       // createdBy: req.adminId, // uncomment if you add this field in schema
     });
