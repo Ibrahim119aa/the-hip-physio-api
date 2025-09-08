@@ -287,52 +287,6 @@ export const getUserProgressHandler = async(req: Request, res: Response, next: N
   }
 }
 
-export const getUserStreakHanlder = async(req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { userId, rehabPlanId } = req.params;
-    
-    if (!userId || !rehabPlanId) {
-      throw new ErrorHandler(400, 'required data is missing.');
-    }
-
-    const progress = await UserProgressModel.findOne({ userId, rehabPlanId });
-
-    if(!progress) {
-      throw new ErrorHandler(404, 'User progress not found.');
-    }
-
-    const { completedSessions } = progress;
-    let currentStreak = 0;
-
-    if (completedSessions.length > 0) {
-      // Sort sessions by date in descending order
-      const sortedSessions = completedSessions.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      // Check for streak
-      for (let i = 0; i < sortedSessions.length; i++) {
-        if (i === 0 || new Date(sortedSessions[i].date).getDate() === new Date(sortedSessions[i - 1].date).getDate() - 1) {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'User streak fetched successfully.',
-      data: { currentStreak }
-    });
-  } catch (error) {
-    console.error('getUserStreakHanlder error', error);
-
-    next(error);
-  }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 // Helper to stringify ObjectId
 const oid = (v: any) => (typeof v === "string" ? v : (v as mongoose.Types.ObjectId).toString());
@@ -521,73 +475,9 @@ export const getUserPlanProgress = async (req: Request, res: Response) => {
   }
 };
 
-export const getUserLogbookHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { userId, rehabPlanId } = req.params;
-
-    if (!userId || !rehabPlanId) {
-      throw new ErrorHandler(400, "Required data is missing.");
-    }
-
-    const progress = await UserProgressModel.findOne({ userId, rehabPlanId })
-      .populate({
-        path: "completedSessions.sessionId",
-        model: "Session",
-        populate: { path: "exercises", model: "Exercise" }
-      })
-
-    if (!progress) {
-      throw new ErrorHandler(404, "User progress not found.");
-    }
-
-    // Create a date-indexed map of completed sessions
-    const logbookMap: Record<string, any> = {};
-    progress.completedSessions.forEach((s: any) => {
-      const dateKey = new Date(s.completedAt).toISOString().split("T")[0];
-      if (!logbookMap[dateKey]) {
-        logbookMap[dateKey] = { date: dateKey, status: "completed", sessions: [] };
-      }
-      logbookMap[dateKey].sessions.push({
-        sessionId: s.sessionId._id,
-        difficultyRating: s.difficultyRating,
-        irritabilityScore: progress.completedExercises.find(
-          (e: any) => e.exerciseId && s.sessionId.exercises.some((ex: any) => ex._id.equals(e.exerciseId))
-        )?.irritabilityScore || null,
-        exercises: s.sessionId.exercises.map((ex: any) => ({
-          exerciseId: ex._id,
-          name: ex.name
-        }))
-      });
-    });
-
-    // Fill in missed days for the rehab plan duration
-    const startDate = new Date(progress.createdAt);
-    const today = new Date();
-    const logbook = [];
-
-    for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-      const key = d.toISOString().split("T")[0];
-      if (logbookMap[key]) {
-        logbook.push(logbookMap[key]);
-      } else {
-        logbook.push({ date: key, status: "missed", sessions: [] });
-      }
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Logbook fetched successfully.",
-      data: logbook
-    });
-  } catch (error) {
-    console.error("getUserLogbookHandler error", error);
-    next(error);
-  }
-};
 
 
 // @route GET /api/user-progress/completed/:planId/:userId
-
 export const getCompletedWithResilience = async (req: Request, res: Response) => {
   try {
     const { planId, userId } = req.params;

@@ -12,7 +12,10 @@ export const hasRole = (role: string) => {
       
       if(!user) throw new ErrorHandler(404, 'User not found.');
 
-      if(user.role !== role) throw new ErrorHandler(403, 'Unauthorized - access required.');
+      const normalizedUserRole = (user.role || '').trim().toLowerCase();
+      const normalizedRequiredRole = (role || '').trim().toLowerCase();
+
+      if(normalizedUserRole !== normalizedRequiredRole) throw new ErrorHandler(403, 'Unauthorized - access required.');
 
       next();
 

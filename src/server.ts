@@ -1,40 +1,27 @@
-// import app from "./app";
-// import config from "./config/config.js";
-// import connectDatabase from "./utils/connectDatabase";
-
-// async function startServer() {
-//   try {
-//     // Connect to MongoDB
-//     await connectDatabase();
-
-//     app.listen(config.port, () => {
-//       console.log(`Server is running on port ${config.port}`);
-//     });
-//   } catch (error) {
-//     console.error('Failed to start server:', error);
-//     process.exit(1);
-//   }
-// }
-
-// startServer();
-
-// server.ts
 import app from './app';
 import config from './config/config';
 import connectDatabase from './utils/connectDatabase';
-import { agenda } from './jobs/agenda';
+import { initAgenda } from './jobs/agenda'; // <-- import initAgenda (not agenda.start)
 
 async function startServer() {
   try {
-    await connectDatabase();           // your Mongoose connection (separate from Agenda)
-    await agenda.start();              // start Agenda
+    await connectDatabase(); // your Mongoose connection
 
-    app.listen(config.port, () => {
+    // Start HTTP first so API is responsive even if Agenda has issues
+    const server = app.listen(config.port, () => {
       console.log(`Server is running on port ${config.port}`);
     });
+
+    // Now initialize Agenda (binds to existing mongoose connection + start)
+    initAgenda().catch((err) => {
+      console.error('Agenda failed to start:', err);
+      // optional: server.close(); process.exit(1);
+    });
+
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);
   }
 }
+
 startServer();
