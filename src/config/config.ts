@@ -12,7 +12,8 @@ const config = {
   // Stripe
   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
   stripeEndpointSecret: process.env.STRIPE_ENDPOINT_SECRET,
-
+  GMAIL_USERNAME:process.env.GMAIL_USERNAME,
+  GMAIL_PASSWORD:process.env.GMAIL_PASSWORD,
   // mail trap
   mailtrapSmtpUser: process.env.MAILTRAP_SMTP_USER,
   mailtrapSmtpPass: process.env.MAILTRAP_SMTP_PASS,

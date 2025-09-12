@@ -16,10 +16,18 @@ console.log('config.mailtrapSmtpUser', config.mailtrapSmtpUser);
 console.log('config.mailtrapSmtpPass', config.mailtrapSmtpPass);
 
 export const smtpTransport = nodemailer.createTransport({
-  host: "sandbox.smtp.mailtrap.io",
-  port: 2525,
+  service: "gmail",
   auth: {
-    user: config.mailtrapSmtpUser,
-    pass: config.mailtrapSmtpPass,
+    user: config.GMAIL_USERNAME,
+    pass: config.GMAIL_PASSWORD,    // use an App Password (not Gmail login password)
   },
 });
+
+// export const smtpTransport = nodemailer.createTransport({
+//   host: "sandbox.smtp.mailtrap.io",
+//   port: 2525,
+//   auth: {
+//     user: config.mailtrapSmtpUser,
+//     pass: config.mailtrapSmtpPass,
+//   },
+// });

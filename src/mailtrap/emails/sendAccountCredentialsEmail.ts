@@ -1,5 +1,5 @@
 import config from "../../config/config";
-// import { smtpTransport } from "../../utils/smtpMailer";
+import { smtpTransport } from "../../utils/smtpMailer";
 import { htmlContent } from "../htmlForEmail";
 import { client, sender } from "../mailtrapConfig";
 
@@ -12,11 +12,14 @@ export const sendAccountCredentialsEmail = async (
   iosAppLink: string,
   androidAppLink: string
 ) => {
+  console.log("this is email");
+  console.log(email);
   const recipient = [{ email }];
   console.log('started sending email');
-  
-  
+
+
   try {
+
     const emailHtml = htmlContent
       .replace(/{userName}/g, userName)
       .replace(/{userEmail}/g, email)
@@ -25,13 +28,20 @@ export const sendAccountCredentialsEmail = async (
       .replace(/{iosAppLink}/g, iosAppLink)
       .replace(/{androidAppLink}/g, androidAppLink);
 
-    const res = await client.send({
-      from: sender,
-      to: recipient,
+    const res = await smtpTransport.sendMail({
+      from: `"The Hip Physio" <noreply@thehipphysio.com>`,
+      to: email,
       subject: `Your HIP Physio ${packageName} Access`,
       html: emailHtml,
-      category: 'Plan Purchase'
-    });
+    })
+
+    // const res = await client.send({
+    //   from: sender,
+    //   to: recipient,
+    //   subject: `Your HIP Physio ${packageName} Access`,
+    //   html: emailHtml,
+    //   category: 'Plan Purchase'
+    // });
 
     return res;
   } catch (error) {

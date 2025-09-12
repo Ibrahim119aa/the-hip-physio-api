@@ -184,9 +184,9 @@ export const htmlContent: string = `
 //                 </div>
 //                 <div class="email-body">
 //                     <p>Hi ${name},</p>
-                    
+
 //                     <p>Your account has been successfully verified and is ready to use!</p>
-                    
+
 //                     <div class="steps">
 //                         <h3>To get started with your rehab plan:</h3>
 //                         <ol>
@@ -203,7 +203,7 @@ export const htmlContent: string = `
 //                     </div>
 
 //                     <p>If you need any assistance with your exercises or rehab plan, our physiotherapy team is available to help.</p>
-                    
+
 //                     <p>Best Regards,<br/>The HIP Physio Team</p>
 //                 </div>
 //                 <div class="email-footer">

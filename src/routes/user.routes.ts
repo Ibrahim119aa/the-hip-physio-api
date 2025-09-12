@@ -11,7 +11,9 @@ import {
   getUsersForNotificationsHandler,
   addUserByAdminHandler,
   updateUserByAdminHandler,
-  deleteUserByAdminHandler
+  deleteUserByAdminHandler,
+  createCheckOutSession,
+  testUserProgress
 } from "../controllers/user.controllers";
 import { isAdminAuthenticated, isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
@@ -20,7 +22,8 @@ import { uploadProfileImage, validateProfileImageUpload } from "../middlewares/u
 const router = Router();
 
 // user routes
-router.route("/credentials").post(stripeWebhookAndCreateCredentialHandlerTemporary)
+router.route("/credentials").post(stripeWebhookAndCreateCredentialHandlerTemporary);
+router.route("/create-checkout-session").post(createCheckOutSession);
 router.route("/reset-password").post(resetPasswordHandler)
 router.route("/login").post(userLoginHandler)
 router.route("/profile")
@@ -36,6 +39,7 @@ router.route("/update/:id")
   .delete( isAdminAuthenticated, hasRole('admin'), deleteUserByAdminHandler);
 
 // Admin routes
+router.route("/test").get(testUserProgress);
 router.route("/admin/login").post(adminLoginHandler)
 router.route("/admin/logout").post(isAdminAuthenticated, hasRole('admin'), adminLogoutHandler)
 

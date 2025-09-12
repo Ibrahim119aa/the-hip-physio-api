@@ -1,18 +1,62 @@
 import { NextFunction, Request, Response } from "express";
 import UserModel from "../models/user.model";
 import createPassword from "../utils/createPassword";
-import Stripe from "stripe";
+import mongoose from "mongoose";
 import config from "../config/config";
 import { TUserDocument } from "../types/user.type";
 import { Types } from "mongoose";
 import { sendAccountCredentialsEmail } from "../mailtrap/emails/sendAccountCredentialsEmail";
 import { dummyStripeEvent } from "../utils/DummyData";
 import ErrorHandler from "../utils/errorHandlerClass";
-import { sendNewPasswordEmailSMTP  } from "../mailtrap/emails/sendPasswordResetEmail";
+import { sendNewPasswordEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 import { generateToken, generateTokenAndSaveCookies } from "../utils/JwtHelpers";
 import bcrypt from 'bcrypt';
 import { adminUpdateUserSchema, TAdminUpdateUserRequest, TUpdateUserRequest, TUserLoginRequest, TUserRequest, updateUserSchema, userLoginSchema, userSchema } from "../validationSchemas/user.schema";
 import { uploadProfileImageToCloudinary } from "../utils/cloudinaryUploads/uploadProfileImageToCloudinary";
+import UserProgressModel from "../models/userProgress.model";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+
+export const createCheckOutSession = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { planId, rehabPlanName,price } = req.body;
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { name: rehabPlanName },
+            unit_amount: price*100, // $50.00 in cents
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.FRONTEND_URL}/success`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+
+
+      metadata: {
+        rehab_plan_name: rehabPlanName,
+        rehab_plan_id: planId,
+      }
+    });
+
+    res.json({ id: session.url });
+  } catch (error) {
+    console.error("Error creating checkout session:", error);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+
 
 // import { sendPasswordResetEmailSMTP } from "../mailtrap/emails/sendPasswordResetEmail";
 
@@ -74,7 +118,7 @@ import { uploadProfileImageToCloudinary } from "../utils/cloudinaryUploads/uploa
 //         } else {
 //           // Create NEW USER with required name field
 //           const generatedPassword = createPassword();
-          
+
 //           const newUser = new UserModel({
 //             email,
 //             name,
@@ -112,13 +156,13 @@ import { uploadProfileImageToCloudinary } from "../utils/cloudinaryUploads/uploa
 // };
 
 export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
-  req: Request, 
-  res: Response, 
+  req: Request,
+  res: Response,
   next: NextFunction
 ) => {
-  try { 
+  try {
     const session = dummyStripeEvent.data.object;
-    
+
     // Extract Data
     const email = session.customer_details?.email;
     const name = session.customer_details?.name || "Customer";
@@ -147,7 +191,8 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
     } else {
       // Create NEW USER with required name field
       const generatedPassword = createPassword();
-      
+      console.log('generatedPassword', generatedPassword);
+
       const newUser = new UserModel({
         email,
         name,
@@ -180,35 +225,35 @@ export const stripeWebhookAndCreateCredentialHandlerTemporary = async (
 };
 
 export const adminLoginHandler = async (
-  req: Request<{}, {}, TUserLoginRequest>, 
-  res: Response, 
+  req: Request<{}, {}, TUserLoginRequest>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
     const parsedBody = userLoginSchema.safeParse(req.body);
 
-    if(!parsedBody.success) {
+    if (!parsedBody.success) {
       const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
       throw new ErrorHandler(400, `${errorMessages.join(', ')}`);
     }
 
-    const { email, password} = parsedBody.data
+    const { email, password } = parsedBody.data
 
     const user = await UserModel.findOne({ email });
     if (!user) throw new ErrorHandler(404, 'Invalid credentials');
-    
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) throw new ErrorHandler(404, 'Invalid credentials');
 
     // Generate JWT token and save in cookies
     const token = generateTokenAndSaveCookies(
       {
-        adminId: user._id, 
+        adminId: user._id,
         email: user.email,
-      }, 
+      },
       res
     );
-    
+
     res.status(200).json({
       success: true,
       message: 'Login successful',
@@ -228,7 +273,7 @@ export const adminLoginHandler = async (
   }
 }
 
-export const adminLogoutHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const adminLogoutHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.clearCookie('atoken');
     res.status(200).json({
@@ -242,32 +287,32 @@ export const adminLogoutHandler = async(req: Request, res: Response, next: NextF
 }
 
 export const userLoginHandler = async (
-  req: Request<{}, {}, TUserLoginRequest>, 
-  res: Response, 
+  req: Request<{}, {}, TUserLoginRequest>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
     const parsedBody = userLoginSchema.safeParse(req.body);
 
-    if(!parsedBody.success) {
+    if (!parsedBody.success) {
       const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
       throw new ErrorHandler(400, `${errorMessages.join(', ')}`);
     }
 
-    const { email, password} = parsedBody.data
+    const { email, password } = parsedBody.data
 
     const user = await UserModel.findOne({ email });
     if (!user) throw new ErrorHandler(404, 'Invalid credentials');
-    
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) throw new ErrorHandler(404, 'Invalid credentials');
 
     // Generate JWT token
     const token = generateToken({
-      userId: user._id, 
+      userId: user._id,
       email: user.email
     });
-    
+
     res.status(200).json({
       success: true,
       token,
@@ -303,8 +348,8 @@ export const resetPasswordHandler = async (req: Request, res: Response, next: Ne
 
     // save new password
     user.password = generatedPassword;
-    await user.save(); 
-    
+    await user.save();
+
     const sentEmail = await sendNewPasswordEmailSMTP(user.email, generatedPassword, user.name);
 
     if (!sentEmail.ok) {
@@ -331,7 +376,7 @@ export const getAllUsersHandler = async (req: Request, res: Response, next: Next
     if (status) query.status = status;
 
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     const users = await UserModel.find(query)
       .select('-password')
       .sort({ createdAt: -1 })
@@ -374,9 +419,9 @@ export const getUsersForNotificationsHandler = async (req: Request, res: Respons
       .sort({ name: 1, email: 1 })
       .lean();
 
-      if (!usersForPicklist || usersForPicklist.length === 0) {
-        throw new ErrorHandler(404, 'No users found');
-      }
+    if (!usersForPicklist || usersForPicklist.length === 0) {
+      throw new ErrorHandler(404, 'No users found');
+    }
 
     return res.status(200).json({
       success: true,
@@ -391,7 +436,7 @@ export const getUsersForNotificationsHandler = async (req: Request, res: Respons
 };
 
 // USER PROFILE HANDLERS
-export const getUserProfileHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const getUserProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId;
     if (!userId) {
@@ -411,8 +456,8 @@ export const getUserProfileHandler = async(req: Request, res: Response, next: Ne
       success: true,
       data: {
         ...user.toObject(),
-        dob: user.dob 
-          ? new Date(user.dob).toISOString().split("T")[0] 
+        dob: user.dob
+          ? new Date(user.dob).toISOString().split("T")[0]
           : null
       }
     });
@@ -422,31 +467,31 @@ export const getUserProfileHandler = async(req: Request, res: Response, next: Ne
   }
 }
 
-export const updateUserProfileHandler = async(
-  req: Request<{}, {}, TUpdateUserRequest>, 
-  res: Response, 
+export const updateUserProfileHandler = async (
+  req: Request<{}, {}, TUpdateUserRequest>,
+  res: Response,
   next: NextFunction
-) => { 
+) => {
   try {
     const parsedBody = updateUserSchema.safeParse(req.body);
-    
+
     const userId = req.userId;
     const file = req.profileImage
-    
-    if(!parsedBody.success) {
+
+    if (!parsedBody.success) {
       const errorMessages = parsedBody.error.issues.map((issue: any) => issue.message);
       throw new ErrorHandler(400, `${errorMessages.join(', ')}`);
     }
-    
+
     if (!userId) throw new ErrorHandler(400, 'User ID is required');
 
     const user = await UserModel.findById(userId).select('-password');
 
     if (!user) throw new ErrorHandler(404, 'User not found');
 
-    if(file) { 
+    if (file) {
       const { url } = await uploadProfileImageToCloudinary(file);
-      
+
       user.profile_photo = url;
     }
 
@@ -455,7 +500,7 @@ export const updateUserProfileHandler = async(
     user.occupation = parsedBody.data.occupation || user.occupation;
     user.dob = parsedBody.data.dob || user.dob;
     // Save new passowrd if provided
-    if(parsedBody.data.password) {
+    if (parsedBody.data.password) {
       user.password = parsedBody.data.password;
     }
     // Save FCM token if provided
@@ -547,6 +592,17 @@ export const addUserByAdminHandler = async (
     next(error);
   }
 };
+export const testUserProgress = async (
+  req: Request<{ id: string }, {}, TAdminUpdateUserRequest>,
+  res: Response,
+  next: NextFunction
+) => {
+  await UserProgressModel.updateOne(
+    { _id: new mongoose.Types.ObjectId("68b9d4f188f5a367b439984e") },
+    { $set: { completedExercises: [] } }
+  );
+  res.send("xcvxcv");
+}
 
 export const updateUserByAdminHandler = async (
   req: Request<{ id: string }, {}, TAdminUpdateUserRequest>,
@@ -623,7 +679,7 @@ export const updateUserByAdminHandler = async (
   }
 };
 
-export const  deleteUserByAdminHandler = async(
+export const deleteUserByAdminHandler = async (
   req: Request<{ id: string }>,
   res: Response,
   next: NextFunction

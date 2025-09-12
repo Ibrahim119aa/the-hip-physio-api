@@ -4,6 +4,7 @@ import ErrorHandler from '../utils/errorHandlerClass';
 import { agenda } from '../jobs/agenda';
 import { auth, messaging } from '../config/firebase';
 import NotificationsModel from '../models/notifications.model';
+import { notificationTest } from '../jobs/sendNotification';
 
 export const createAndScheduleNotificationHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -33,6 +34,7 @@ export const createAndScheduleNotificationHandler = async (req: Request, res: Re
     if (status === 'scheduled') {
       await agenda.schedule(notifications.scheduleAt!, 'send-notification', { notificationId: notifications._id.toString() });
     } else {
+      await notificationTest(notifications._id.toString());
       await agenda.now('send-notification', { notificationId: notifications._id.toString() });
     }
 

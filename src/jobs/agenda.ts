@@ -30,9 +30,13 @@ export async function initAgenda() {
   // Define jobs after binding
   defineSendNotificationJob(agenda, {});
 
-  await agenda.start();
-  initialized = true;
-  console.log('🚀 [Agenda] started');
+  try {
+     agenda.start();
+    initialized = true;
+    console.log('🚀 [Agenda] started');
+  } catch (err) {
+    console.error('[Agenda] failed to start:', err);
+  }
 
   return agenda;
 }
