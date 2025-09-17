@@ -42,16 +42,16 @@ const isAdminAuthenticated = async (req: Request, res: Response, next: NextFunct
     const adminToken = req.cookies.aToken;
 
     if (!adminToken) {
-      // throw new ErrorHandler(401, 'Please login as an admin.');
+      throw new ErrorHandler(401, 'Please login as an admin.');
     }
 
     const decoded = verifyAdminToken(adminToken) as jwt.JwtPayload;
     
-    // if (!decoded?.adminId) {
-    //   throw new ErrorHandler(401, 'Invalid admin token.');
-    // }
+    if (!decoded?.adminId) {
+      throw new ErrorHandler(401, 'Invalid admin token.');
+    }
 
-    // req.adminId = decoded.adminId;
+    req.adminId = decoded.adminId;
     next();
 
   } catch (error) {
