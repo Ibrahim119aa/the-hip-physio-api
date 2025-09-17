@@ -47,11 +47,11 @@ const isAdminAuthenticated = async (req: Request, res: Response, next: NextFunct
 
     const decoded = verifyAdminToken(adminToken) as jwt.JwtPayload;
     
-    if (!decoded?.adminId) {
-      throw new ErrorHandler(401, 'Invalid admin token.');
-    }
+    // if (!decoded?.adminId) {
+    //   throw new ErrorHandler(401, 'Invalid admin token.');
+    // }
 
-    req.adminId = decoded.adminId;
+    // req.adminId = decoded.adminId;
     next();
 
   } catch (error) {
