@@ -13,7 +13,7 @@ async function startServer() {
     });
 
     // Now initialize Agenda (binds to existing mongoose connection + start)
-    initAgenda().catch((err) => {
+    await initAgenda().catch((err) => {
       console.error('Agenda failed to start:', err);
       // optional: server.close(); process.exit(1);
     });

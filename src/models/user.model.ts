@@ -64,14 +64,14 @@ const userSchema = new mongoose.Schema<TUserDocument>({
     enum: ['user', 'admin'],
     default: 'user'
   },
-},{
+}, {
   timestamps: true
 });
 
 
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   const user = this as TUserDocument;
-  if(!user.isModified('password')) return next();
+  if (!user.isModified('password')) return next();
 
   try {
     const salt = await bcrypt.genSalt(Number(config.saltFactor))
@@ -83,10 +83,10 @@ userSchema.pre('save', async function(next) {
   } catch (error: any) {
     console.error('Failed to hash password:', error);
     next(error);
-  } 
+  }
 });
 
-userSchema.methods.comparePassword = async function(candidatePassword: string) {
+userSchema.methods.comparePassword = async function (candidatePassword: string) {
   const user = this as TUserDocument;
 
   try {

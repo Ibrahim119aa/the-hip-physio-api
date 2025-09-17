@@ -119,7 +119,7 @@ app.post(
 );
 app.use(morgan('dev'))
 
-const allowedOrigins = ['https://www.thehipphysio.com', 'http://localhost:3000', 'http://localhost:3001']
+const allowedOrigins = ['https://www.thehipphysio.com','https://thehipphysio-6d2j.vercel.app', 'http://localhost:3000', 'http://localhost:3001']
 
 app.use(helmet());
 app.use(cors({

@@ -6,26 +6,26 @@ import { generateTokenAndSaveCookies } from "../utils/JwtHelpers";
 export const adminLoginHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       throw new ErrorHandler(400, 'Email and password are required');
     }
-    
+
     const user = await UserModel.findOne({ email });
     if (!user) throw new ErrorHandler(404, 'Invalid credentials');
-    
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) throw new ErrorHandler(404, 'Invalid credentials');
 
     // Generate JWT token and save in cookies
     const token = generateTokenAndSaveCookies(
       {
-        adminId: user._id, 
+        adminId: user._id,
         email: user.email,
-      }, 
+      },
       res
     );
-    
+
     res.status(200).json({
       success: true,
       token,

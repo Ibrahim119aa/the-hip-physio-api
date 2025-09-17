@@ -148,6 +148,8 @@ export const notificationTest = async (notificationId: string) => {
         if (!userId) return;
 
         const delivered = !!r.success;
+        console.log("this is response");
+        console.log(r);
 
         ops.push({
           updateOne: {
@@ -201,7 +203,7 @@ export const notificationTest = async (notificationId: string) => {
     await notif.save();
   }
 }
-export const defineSendNotificationJob = (
+export const defineSendNotificationJob = async (
   agenda: Agenda,
   opts?: { iosBundleId?: string; androidChannelId?: string }
 ) => {
@@ -211,8 +213,9 @@ export const defineSendNotificationJob = (
 
 
   agenda.define('send-notification', async (job: Job) => {
-    const { notificationId } = (job.attrs.data || {}) as { notificationId?: string };
     console.log("here");
+    const { notificationId } = (job.attrs.data || {}) as { notificationId?: string };
+
     if (!notificationId) return;
 
 
