@@ -32,7 +32,7 @@ export const generateTokenAndSaveCookies = (
   res.cookie('aToken', token, {
     httpOnly: true,
     secure: config.environment === 'production', // HTTPS only in production
-    sameSite: 'lax', // or 'lax' for cross-site compatibility
+    sameSite: 'none', // or 'lax' for cross-site compatibility
     path: '/', // Accessible across all routes
   });
 
