@@ -390,6 +390,7 @@ export const getRehabPlanByIdHandler = async (
             exercises: exercises.map((ex) => ({
               _id: ex._id,
               name: ex.name,
+              description:ex.description,
               thumbnailUrl: ex.thumbnailUrl,
               sets: ex.sets,
               reps: ex.reps,
