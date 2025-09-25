@@ -3,21 +3,21 @@ import mongoose from "mongoose";
 
 const scheduleItemSchema = new mongoose.Schema(
   {
-    week: { 
-      type: Number, 
-      required: true, 
-      min: 0 
+    week: {
+      type: Number,
+      required: true,
+      min: 0
     },
-    day: { 
-      type: Number, 
-      required: true, 
-      min: 1, max: 7 
+    day: {
+      type: Number,
+      required: true,
+      min: 1, max: 7
     },
     sessions: [
-      { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: "Session", 
-        required: true 
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Session",
+        required: true
       },
     ],
   },
@@ -26,61 +26,68 @@ const scheduleItemSchema = new mongoose.Schema(
 
 const rehabPlanSchema = new mongoose.Schema(
   {
-    name: { 
-      type: String, 
-      required: true, 
-      trim: true 
+    name: {
+      type: String,
+      required: true,
+      trim: true
     },
-    description: { 
-      type: String, 
-      required: true, 
-      trim: true 
-    },
-
-    price: { 
-      type: Number, 
-      required: true, 
-      min: 0 
-    },
-    planType: { 
-      type: String, 
-      enum: ["paid", "free"], 
-      required: true 
+    description: {
+      type: String,
+      required: true,
+      trim: true
     },
 
-    planDurationInWeeks: { 
-      type: Number, 
-      required: true, 
-      min: 1 
+    price: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    planType: {
+      type: String,
+      enum: ["paid", "free"],
+      required: true
+    },
+
+    planDurationInWeeks: {
+      type: Number,
+      required: true,
+      min: 1
     },
 
     // Either a number ≥ 0 or null. Using min with Number allows nulls.
-    weekStart: { 
-      type: Number, 
-      min: 0, 
-      default: null 
+    weekStart: {
+      type: Number,
+      min: 0,
+      default: null
     },
-    weekEnd: { 
-      type: Number, 
-      min: 0, 
-      default: null 
+    weekEnd: {
+      type: Number,
+      min: 0,
+      default: null
     },
-    openEnded: { 
-      type: Boolean, 
-      default: false 
+    openEnded: {
+      type: Boolean,
+      default: false
     },
 
     // Optional textual phase label
-    phase: { 
-      type: String, 
-      default: null, 
-      trim: true 
+    phase: {
+      type: String,
+      default: null,
+      trim: true
     },
 
     category: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "RehabPlanCategory",
+        required: true,
+      },
+    ],
+    equipment: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "RehabPlanEquipment",
         required: true,
       },
     ],

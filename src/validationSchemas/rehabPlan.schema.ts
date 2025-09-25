@@ -36,28 +36,29 @@ export const createRehabPlanPhaseSchema = z.object({
 
   // allow empty list (or make it conditional if you prefer)
   category: z.array(z.string()).default([]).optional(),
+  equipment: z.array(z.string()).default([]).optional(),
 })
-.superRefine((data, ctx) => {
-  // price required only for paid plans
-  if (data.planType === "paid" && (data.price == null)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["price"], message: "Price is required for paid plans" });
-  }
+  .superRefine((data, ctx) => {
+    // price required only for paid plans
+    if (data.planType === "paid" && (data.price == null)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["price"], message: "Price is required for paid plans" });
+    }
 
-  // duration required unless openEnded
-  if (!data.openEnded && (data.planDurationInWeeks == null)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["planDurationInWeeks"], message: "Plan duration is required unless the plan is open-ended" });
-  }
+    // duration required unless openEnded
+    if (!data.openEnded && (data.planDurationInWeeks == null)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["planDurationInWeeks"], message: "Plan duration is required unless the plan is open-ended" });
+    }
 
-  // optional: only paid plans require at least one category
-  // if (data.planType === "paid" && (!data.category || data.category.length === 0)) {
-  //   ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["category"], message: "Select at least one category for paid plans" });
-  // }
+    // optional: only paid plans require at least one category
+    // if (data.planType === "paid" && (!data.category || data.category.length === 0)) {
+    //   ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["category"], message: "Select at least one category for paid plans" });
+    // }
 
-  // sanity: if both set, end >= start
-  if (data.weekStart != null && data.weekEnd != null && data.weekEnd < data.weekStart) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["weekEnd"], message: "Week End must be greater than or equal to Week Start" });
-  }
-});
+    // sanity: if both set, end >= start
+    if (data.weekStart != null && data.weekEnd != null && data.weekEnd < data.weekStart) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["weekEnd"], message: "Week End must be greater than or equal to Week Start" });
+    }
+  });
 
 
 /** PARAM: /:planId */
@@ -73,42 +74,42 @@ export const updateRehabPlanSchema = z.object({
     .max(100)
     .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim()))
     .optional(),
-  
+
   description: z.string()
     .min(10)
     .max(5000)
     .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim()))
     .optional(),
-  
+
   price: z.coerce.number().min(0).optional(),
 
   planType: z.enum(["paid", "free"]).optional(),
-  
+
   planDurationInWeeks: z.coerce.number()
     .int()
     .min(1)
     .optional(),
-  
+
   weekStart: z.coerce.number()
     .int()
     .min(0)
     .nullable()
     .optional(),
-  
+
   weekEnd: z.coerce.number()
     .int()
     .min(0)
     .nullable()
     .optional(),
-  
+
   openEnded: z.coerce.boolean().optional(),
-  
+
   phase: z.string()
     .max(100)
     .transform((value) => value === undefined ? value : domPurify.sanitize(value.trim()))
     .nullable()
     .optional(),
-  
+
   category: z.array(z.string())
     .min(1)
     .optional(),
@@ -121,9 +122,9 @@ export const updateRehabPlanSchema = z.object({
       sessions: z.array(z.string()).min(1),
     })
   )
-  .min(1)
-  .optional(),
-  
+    .min(1)
+    .optional(),
+
 })
 
 // Types

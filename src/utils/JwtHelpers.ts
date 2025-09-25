@@ -12,7 +12,7 @@ type AdminTokenPayload = {
   email: string;
 }
 
-const JWT_SECRET = config.jwtSecret!; 
+const JWT_SECRET = config.jwtSecret!;
 
 // Generate JWT token
 export const generateToken = (payload: UserTokenPayload): string => {
@@ -25,15 +25,17 @@ export const generateTokenAndSaveCookies = (
   payload: AdminTokenPayload,
   res: Response
 ): string => {
-  
+
   const token = jwt.sign(payload, process.env.JWT_SECRET!);
 
   // Set HTTP-only cookie (secure, SameSite)
   res.cookie('aToken', token, {
     httpOnly: true,
     secure: config.environment === 'production', // HTTPS only in production
-    sameSite: 'none', // or 'lax' for cross-site compatibility
+    // sameSite: 'lax',
+    sameSite: 'none',
     path: '/', // Accessible across all routes
+    maxAge: 24 * 60 * 60 * 7000, // 1 day
   });
 
   return token;

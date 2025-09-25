@@ -3,24 +3,35 @@ import { assigPlanToUserHandler, createRehabPlanHandler, deleteRehabPlanHandler,
 import { addRehabPlanCategoryHandler, deleteRehabPlanCategoryHandler, getAllRehabPlabCategoriesHandler, updateRehabPlanCategoryHandler } from "../controllers/rehabPlanCategory.controllers";
 import { isAdminAuthenticated, isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
+import { addRehabPlanEquipmentHandler, deleteRehabPlanEquipmentHandler, getAllRehabPlabEqupmentsHandler, updateRehabPlanEquipmentHandler } from "../controllers/rehabPlansEquipments.controller";
 
 const router = Router();
 
 
-/** Rehab plan category Routes */ 
+/** Rehab plan category Routes */
 router.route("/category")
   .get(getAllRehabPlabCategoriesHandler)
-  .post( isAdminAuthenticated, hasRole("admin"), addRehabPlanCategoryHandler)
-  
+  .post(isAdminAuthenticated, hasRole("admin"), addRehabPlanCategoryHandler)
+
+
+router.route("/equipments")
+  .get(getAllRehabPlabEqupmentsHandler)
+  .post(isAdminAuthenticated, hasRole("admin"), addRehabPlanEquipmentHandler)
+
 router.route("/category/:id")
-  .put(isAdminAuthenticated, hasRole("admin"),  updateRehabPlanCategoryHandler)
+  .put(isAdminAuthenticated, hasRole("admin"), updateRehabPlanCategoryHandler)
   .delete(isAdminAuthenticated, hasRole("admin"), deleteRehabPlanCategoryHandler);
 
-/** Rehab plans Routes */ 
+
+router.route("/equipments/:id")
+  .put(isAdminAuthenticated, hasRole("admin"), updateRehabPlanEquipmentHandler)
+  .delete(isAdminAuthenticated, hasRole("admin"), deleteRehabPlanEquipmentHandler);
+
+/** Rehab plans Routes */
 router.route("/")
   .post(isAdminAuthenticated, hasRole('admin'), createRehabPlanHandler)
   .get(getAllRehabPlansHandler)
-router.route("/:planId/assign").post(isAdminAuthenticated, hasRole('admin'), assigPlanToUserHandler);  
+router.route("/:planId/assign").post(isAdminAuthenticated, hasRole('admin'), assigPlanToUserHandler);
 router.route('/:planId/schedule').get(getPlanScheduleHandler);
 router.route("/:planId")
   .get(isUserAuthenticated, getRehabPlanByIdHandler)

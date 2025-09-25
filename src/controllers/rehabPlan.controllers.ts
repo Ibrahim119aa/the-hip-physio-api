@@ -9,25 +9,25 @@ import mongoose from "mongoose";
 import { createRehabPlanPhaseSchema, planIdParamSchema, TPlanIdParams, TRehabPlanCreateRequest, TUpdateRehabPlanRequest, updateRehabPlanSchema } from "../validationSchemas/rehabPlan.schema";
 import UserModel from "../models/user.model";
 
-export const createRehabPlanHandler = async(
-  req: Request<{}, {}, TRehabPlanCreateRequest>, 
-  res: Response, 
+export const createRehabPlanHandler = async (
+  req: Request<{}, {}, TRehabPlanCreateRequest>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
-    
+
     const parsedBody = createRehabPlanPhaseSchema.safeParse(req.body)
     const adminId = req.adminId
 
     if (!parsedBody.success) {
-      const errorMessages = parsedBody.error.issues.map(issue => { 
+      const errorMessages = parsedBody.error.issues.map(issue => {
         const path = issue.path.join(".");
         return `${path}: ${issue.message}`;
       }).join(", ");
 
       throw new ErrorHandler(400, errorMessages);
     }
-    
+
     const {
       name,
       description,
@@ -38,7 +38,8 @@ export const createRehabPlanHandler = async(
       weekEnd,     // number | null
       openEnded,
       phase,       // string | null
-      category     // string[]
+      category,     // string[]
+      equipment
     } = parsedBody.data;
 
     if (planType === "free" && price !== 0) {
@@ -68,8 +69,9 @@ export const createRehabPlanHandler = async(
       phase,
       category,
       createdBy: adminId,
+      equipment
     });
-    
+
     res.status(201).json({
       success: true,
       message: "Rehab plan created successfully",
@@ -196,14 +198,14 @@ export const deleteRehabPlanHandler = async (
 ) => {
   try {
     const parsedParams = planIdParamSchema.safeParse(req.params);
-   
+
     if (!parsedParams.success) {
       return next(new ErrorHandler(400, "Invalid plan id"));
     }
     const { planId } = parsedParams.data;
 
     const deleted = await RehabPlanModel.findByIdAndDelete(planId).lean();
-  
+
     if (!deleted) throw new ErrorHandler(404, "Rehab plan not found");
 
     res.status(200).json({
@@ -218,19 +220,19 @@ export const deleteRehabPlanHandler = async (
   }
 };
 
-export const assigPlanToUserHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const assigPlanToUserHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { planId } = req.params
     const { userId } = req.body
 
     const plan = await RehabPlanModel.find({ _id: planId });
-    if(!plan) throw new ErrorHandler(404, 'Rehab plan not found');
+    if (!plan) throw new ErrorHandler(404, 'Rehab plan not found');
 
     const user = await UserModel.findById(userId);
     if (!user) throw new ErrorHandler(404, 'User not found');
 
     // 3. Check if the user has already purchased the plan
-    const alreadyAssigned = user.purchasedPlans.some( (purchasedPlanId: any) => purchasedPlanId.toString() === planId);
+    const alreadyAssigned = user.purchasedPlans.some((purchasedPlanId: any) => purchasedPlanId.toString() === planId);
 
     if (alreadyAssigned) {
       throw new ErrorHandler(400, 'User is already assigned this rehab plan');
@@ -299,7 +301,7 @@ export const getRehabPlanByIdHandler = async (
     //   (progress?.completedExercises || []).map((e: any) => oid(e.exerciseId))
     // );
     const completedExerciseKeys = new Set<string>(
-      (progress?.completedExercises || []).map( (e: any) => `${oid(e.sessionId)}-${oid(e.exerciseId)}` )
+      (progress?.completedExercises || []).map((e: any) => `${oid(e.sessionId)}-${oid(e.exerciseId)}`)
     );
     const completedSessionIds = new Set<string>(
       (progress?.completedSessions || []).map((s: any) => oid(s.sessionId))
@@ -321,7 +323,7 @@ export const getRehabPlanByIdHandler = async (
 
     // 4) Build organized structure (weeks -> days -> sessions) with strict unlocking rules
     const weeksOut: any[] = [];
-    
+
     const totals = {
       totalExercises: 0,
       completedExercises: 0,
@@ -362,13 +364,13 @@ export const getRehabPlanByIdHandler = async (
           //   (acc, ex) => acc + (completedExerciseIds.has(oid(ex._id)) ? 1 : 0),
           //   0
           // );
-    
+
           const sDoneCount = exercises.reduce(
             (acc, ex) =>
               acc + (completedExerciseKeys.has(`${sessionId}-${oid(ex._id)}`) ? 1 : 0),
             0
           );
-    
+
           // const sCompleted =
           //   (sTotal > 0 && sDoneCount === sTotal) ||
           //   completedSessionIds.has(sessionId);
@@ -390,7 +392,7 @@ export const getRehabPlanByIdHandler = async (
             exercises: exercises.map((ex) => ({
               _id: ex._id,
               name: ex.name,
-              description:ex.description,
+              description: ex.description,
               thumbnailUrl: ex.thumbnailUrl,
               sets: ex.sets,
               reps: ex.reps,
@@ -497,12 +499,12 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
   try {
     const catColl = RehabPlanCategoryModel.collection.name; // safe actual names
     const sessColl = SessionModel.collection.name;
-    const exColl   = ExerciseModel.collection.name;
+    const exColl = ExerciseModel.collection.name;
 
     const pipeline = [
       {
-        $project: { 
-          name: 1, 
+        $project: {
+          name: 1,
           description: 1,
           price: 1,
           planType: 1,
@@ -510,24 +512,28 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
           weekStart: 1,
           weekEnd: 1,
           openEnded: { $ifNull: ["$openEnded", false] },
-          planDurationInWeeks: 1, 
-          category: 1, 
-          schedule: { $ifNull: ["$schedule", []] } 
-        } 
+          planDurationInWeeks: 1,
+          category: 1,
+          schedule: { $ifNull: ["$schedule", []] }
+        }
       },
 
       // Track distinct weeks without expanding everything
-      { $addFields: { weeksSet: { $setUnion: [[] , "$schedule.week"] } } },
+      { $addFields: { weeksSet: { $setUnion: [[], "$schedule.week"] } } },
 
       // Aggregate sessions + exercises INSIDE subpipeline
       {
         $lookup: {
           from: sessColl,
-          let: { sIds: { $reduce: {
-            input: "$schedule.sessions",
-            initialValue: [],
-            in: { $setUnion: ["$$value", "$$this"] } // dedupe session IDs across days
-          }}},
+          let: {
+            sIds: {
+              $reduce: {
+                input: "$schedule.sessions",
+                initialValue: [],
+                in: { $setUnion: ["$$value", "$$this"] } // dedupe session IDs across days
+              }
+            }
+          },
           pipeline: [
             { $match: { $expr: { $in: ["$_id", "$$sIds"] } } },
             { $unwind: { path: "$exercises", preserveNullAndEmptyArrays: true } },
@@ -562,7 +568,7 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
             ]
           },
           totalExercises: { $ifNull: [{ $first: "$sessAgg.totalExercises" }, 0] },
-          totalMinutes:   { $ceil: { $divide: [{ $ifNull: [{ $first: "$sessAgg.totalSeconds" }, 0] }, 60] } }
+          totalMinutes: { $ceil: { $divide: [{ $ifNull: [{ $first: "$sessAgg.totalSeconds" }, 0] }, 60] } }
         }
       },
       // Now get categories once per plan
@@ -610,7 +616,7 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
           //     { $concat: [ { $toString: "$planDurationInWeeks" }, "-Weeks" ] } // duration-only
           //   ]
           // },
-          
+
           totalWeeks: 1,
           totalMinutes: 1,
           totalExercises: 1,
@@ -620,15 +626,15 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
     ];
 
     const data = await RehabPlanModel.aggregate(pipeline).allowDiskUse(true);
-    
+
     if (!data.length) throw new ErrorHandler(404, "No rehab plans found");
-    
-    res.status(200).json({ 
+
+    res.status(200).json({
       success: true,
-      message: "Rehab plans fetched successfully", 
-      data 
+      message: "Rehab plans fetched successfully",
+      data
     });
-    
+
   } catch (err) {
     console.error("getAllRehabPlansHandler error:", err);
     next(err);
