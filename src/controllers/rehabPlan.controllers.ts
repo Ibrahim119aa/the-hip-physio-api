@@ -8,6 +8,7 @@ import ExerciseModel from "../models/exercise.model";
 import mongoose from "mongoose";
 import { createRehabPlanPhaseSchema, planIdParamSchema, TPlanIdParams, TRehabPlanCreateRequest, TUpdateRehabPlanRequest, updateRehabPlanSchema } from "../validationSchemas/rehabPlan.schema";
 import UserModel from "../models/user.model";
+import RehabPlanEquipmentModel from "../models/rehabPlanEquipments";
 
 export const createRehabPlanHandler = async (
   req: Request<{}, {}, TRehabPlanCreateRequest>,
@@ -502,9 +503,10 @@ export const getRehabPlanByIdHandler = async (
 
 export const getAllRehabPlansHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const catColl = RehabPlanCategoryModel.collection.name; // safe actual names
+    const rehabCol = RehabPlanEquipmentModel.collection.name; // equipment collection
     const sessColl = SessionModel.collection.name;
     const exColl = ExerciseModel.collection.name;
+    const catColl = RehabPlanCategoryModel.collection.name; // <-- add this if missing
 
     const pipeline = [
       {
@@ -519,11 +521,12 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
           openEnded: { $ifNull: ["$openEnded", false] },
           planDurationInWeeks: 1,
           category: 1,
+          equipment: 1,
           schedule: { $ifNull: ["$schedule", []] }
         }
       },
 
-      // Track distinct weeks without expanding everything
+      // Track distinct weeks
       { $addFields: { weeksSet: { $setUnion: [[], "$schedule.week"] } } },
 
       // Aggregate sessions + exercises INSIDE subpipeline
@@ -535,7 +538,7 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
               $reduce: {
                 input: "$schedule.sessions",
                 initialValue: [],
-                in: { $setUnion: ["$$value", "$$this"] } // dedupe session IDs across days
+                in: { $setUnion: ["$$value", "$$this"] } // dedupe session IDs
               }
             }
           },
@@ -556,13 +559,19 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
               $group: {
                 _id: null,
                 totalExercises: { $sum: { $cond: [{ $ifNull: ["$ex._id", false] }, 1, 0] } },
-                totalSeconds: { $sum: { $convert: { input: "$ex.estimatedDuration", to: "double", onNull: 0, onError: 0 } } }
+                totalSeconds: {
+                  $sum: {
+                    $convert: { input: "$ex.estimatedDuration", to: "double", onNull: 0, onError: 0 }
+                  }
+                }
               }
             }
           ],
           as: "sessAgg"
         }
       },
+
+      // Compute totals
       {
         $addFields: {
           totalWeeks: {
@@ -573,19 +582,36 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
             ]
           },
           totalExercises: { $ifNull: [{ $first: "$sessAgg.totalExercises" }, 0] },
-          totalMinutes: { $ceil: { $divide: [{ $ifNull: [{ $first: "$sessAgg.totalSeconds" }, 0] }, 60] } }
+          totalMinutes: {
+            $ceil: {
+              $divide: [{ $ifNull: [{ $first: "$sessAgg.totalSeconds" }, 0] }, 60]
+            }
+          }
         }
       },
-      // Now get categories once per plan
+
+      // Get categories
       {
         $lookup: {
           from: catColl,
           localField: "category",
           foreignField: "_id",
           as: "categories",
-          pipeline: [{ $project: { _id: 1, title: 1 } }]
+          pipeline: [{ $project: { _id: 1, title: 1, description: 1 } }]
         }
       },
+
+      // Get equipment
+      {
+        $lookup: {
+          from: rehabCol,
+          localField: "equipment",
+          foreignField: "_id",
+          as: "equipment",
+          pipeline: [{ $project: { _id: 1, title: 1, description: 1 } }]
+        }
+      },
+
       {
         $project: {
           _id: 1,
@@ -596,36 +622,13 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
           phase: 1,
           weekStart: 1,
           weekEnd: 1,
-          openEnded: { $ifNull: ["$openEnded", false] },
-          planDurationInWeeks: { $ifNull: ["$planDurationInWeeks", null] },
-          // compute week badge
-          // weekBadge: {
-          //   $cond: [
-          //     { $ne: ["$weekStart", null] }, // range mode if weekStart is set (0 counts as set)
-          //     {
-          //       $concat: [
-          //         "Week ",
-          //         { $toString: "$weekStart" },
-          //         "-",
-          //         {
-          //           $toString: {
-          //             $ifNull: [
-          //               "$weekEnd",
-          //               { $add: ["$weekStart", "$planDurationInWeeks"] } // fallback
-          //             ]
-          //           }
-          //         },
-          //         { $cond: [ { $ifNull: ["$openEnded", false] }, "+", "" ] }
-          //       ]
-          //     },
-          //     { $concat: [ { $toString: "$planDurationInWeeks" }, "-Weeks" ] } // duration-only
-          //   ]
-          // },
-
+          openEnded: 1,
+          planDurationInWeeks: 1,
           totalWeeks: 1,
           totalMinutes: 1,
           totalExercises: 1,
           categories: 1,
+          equipment: 1
         }
       }
     ];
@@ -639,12 +642,12 @@ export const getAllRehabPlansHandler = async (req: Request, res: Response, next:
       message: "Rehab plans fetched successfully",
       data
     });
-
   } catch (err) {
     console.error("getAllRehabPlansHandler error:", err);
     next(err);
   }
 };
+
 
 export const getPlanScheduleHandler = async (
   req: Request<{ planId: string }>,
