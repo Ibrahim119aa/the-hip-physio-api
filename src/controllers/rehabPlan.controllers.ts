@@ -269,6 +269,10 @@ export const getRehabPlanByIdHandler = async (
     // 1) Pull plan with schedule -> sessions -> exercises (and exercise.category) populated
     const plan = await RehabPlanModel.findById(planId)
       .populate({
+        path: "equipment",   // <-- NEW
+        select: "_id title description",
+      })
+      .populate({
         path: "category",
         select: "title description",
       })
@@ -279,7 +283,7 @@ export const getRehabPlanByIdHandler = async (
           path: "exercises",
           model: "Exercise",
           select:
-            "_id name description videoUrl thumbnailUrl reps sets category tags bodyPart difficulty estimatedDuration createdBy createdAt updatedAt",
+            "_id name description videoUrl thumbnailUrl reps sets category equipment tags bodyPart difficulty estimatedDuration createdBy createdAt updatedAt",
           populate: {
             path: "category",              // exercise.category reference
             model: "ExerciseCategory",     // <- change if your model name differs
@@ -479,6 +483,7 @@ export const getRehabPlanByIdHandler = async (
           planType: plan.planType,
           planDurationInWeeks: plan.planDurationInWeeks,
           phase: plan.phase,
+          equipment: plan.equipment,
           category: plan.category, // already populated (title, description)
         },
         schedule: {
