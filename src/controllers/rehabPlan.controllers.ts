@@ -102,6 +102,8 @@ export const updateRehabPlanHandler = async (
     }
 
     const data = parsedBody.data as any;
+    console.log("this is parsed data");
+    console.log(data);
 
     // Business rule (keep as-is)
     if (data.planType === "free" && data.price !== undefined && data.price !== 0) {
@@ -112,7 +114,7 @@ export const updateRehabPlanHandler = async (
     const { schedule, overwriteSameDay, overwrite, ...rest } = data;
     const allowOverwrite = Boolean(overwriteSameDay ?? overwrite);
 
-    // 1) $set non-schedule fields (if any)
+
     const setDoc: Record<string, any> = {};
     for (const [k, v] of Object.entries(rest)) {
       if (v !== undefined) setDoc[k] = v;
@@ -130,7 +132,7 @@ export const updateRehabPlanHandler = async (
       if (!exists) throw new ErrorHandler(404, "Rehab plan not found");
     }
 
-    // 2) Schedule logic
+
     let replaced = false;
 
     if (schedule !== undefined) {
@@ -173,7 +175,7 @@ export const updateRehabPlanHandler = async (
       }
     }
 
-    // 3) Return final doc and short message
+
     const updatedDoc = await RehabPlanModel.findById(planId).lean();
     if (!updatedDoc) throw new ErrorHandler(404, "Rehab plan not found");
 

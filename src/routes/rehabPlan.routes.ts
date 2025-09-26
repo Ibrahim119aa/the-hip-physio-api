@@ -4,6 +4,7 @@ import { addRehabPlanCategoryHandler, deleteRehabPlanCategoryHandler, getAllReha
 import { isAdminAuthenticated, isUserAuthenticated } from "../middlewares/isAuthenticated.middleware";
 import { hasRole } from "../middlewares/hasRole.middleware";
 import { addRehabPlanEquipmentHandler, deleteRehabPlanEquipmentHandler, getAllRehabPlabEqupmentsHandler, updateRehabPlanEquipmentHandler } from "../controllers/rehabPlansEquipments.controller";
+import { addRehabPlanEducationalVideoHandler, getRehabPlanEducationalVideoById } from "../controllers/RehabPlanEducationVideo.controller";
 
 const router = Router();
 
@@ -14,6 +15,8 @@ router.route("/category")
   .post(isAdminAuthenticated, hasRole("admin"), addRehabPlanCategoryHandler)
 
 
+router.route("/educational-video").post(isAdminAuthenticated, hasRole("admin"), addRehabPlanEducationalVideoHandler)
+router.route('/educational-video/:planId').get(getRehabPlanEducationalVideoById);
 router.route("/equipments")
   .get(getAllRehabPlabEqupmentsHandler)
   .post(isAdminAuthenticated, hasRole("admin"), addRehabPlanEquipmentHandler)

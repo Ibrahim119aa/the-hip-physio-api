@@ -113,6 +113,9 @@ export const updateRehabPlanSchema = z.object({
   category: z.array(z.string())
     .min(1)
     .optional(),
+  equipment: z.array(z.string())
+    .min(1)
+    .optional(),
 
   // Schedule (optional; supply only if you’re updating schedule)
   schedule: z.array(
@@ -124,6 +127,7 @@ export const updateRehabPlanSchema = z.object({
   )
     .min(1)
     .optional(),
+
 
 })
 
