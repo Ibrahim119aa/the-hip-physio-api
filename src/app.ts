@@ -51,6 +51,7 @@ app.post(
     }
 
 
+    console.log("this is session data ");
 
     // console.log("✅ Event received:", event.type);
 
