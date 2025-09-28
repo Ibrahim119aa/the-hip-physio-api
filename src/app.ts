@@ -137,8 +137,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Home route
-app.get("/", (req, res, next) => {
+app.get("/", async(req, res, next) => {
   try {
+   
     res.status(200).json({
       message: "Welcome to The Hip Physio"
     })

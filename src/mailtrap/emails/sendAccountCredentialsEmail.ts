@@ -2,8 +2,10 @@ import config from "../../config/config";
 import { smtpTransport } from "../../utils/smtpMailer";
 import { htmlContent } from "../htmlForEmail";
 import { client, sender } from "../mailtrapConfig";
+import sgMail from "@sendgrid/mail";
+sgMail.setApiKey(config.sendGridApiKey || '');
 
-// FOR TESTING (Mailtrap)
+
 export const sendAccountCredentialsEmail = async (
   email: string,
   userName: string,
@@ -19,6 +21,7 @@ export const sendAccountCredentialsEmail = async (
 
 
   try {
+    console.log(config.sendGridApiKey)
 
     const emailHtml = htmlContent
       .replace(/{userName}/g, userName)
@@ -28,21 +31,13 @@ export const sendAccountCredentialsEmail = async (
       .replace(/{iosAppLink}/g, iosAppLink)
       .replace(/{androidAppLink}/g, androidAppLink);
 
-    const res = await smtpTransport.sendMail({
-      from: `"The Hip Physio" <noreply@thehipphysio.com>`,
+    const res = await sgMail.send({
+      from: config.senderEmail || "",
       to: email,
       subject: `Your HIP Physio ${packageName} Access`,
       html: emailHtml,
+
     })
-
-    // const res = await client.send({
-    //   from: sender,
-    //   to: recipient,
-    //   subject: `Your HIP Physio ${packageName} Access`,
-    //   html: emailHtml,
-    //   category: 'Plan Purchase'
-    // });
-
     return res;
   } catch (error) {
     console.error('Failed to send test account credentials email:', error);

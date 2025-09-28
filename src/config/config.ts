@@ -8,7 +8,8 @@ const config = {
   environment: process.env.ENV_NODE,
   mongoURI: process.env.MONGO_URI,
   saltFactor: process.env.SALT,
-  
+  sendGridApiKey: process.env.SENDGRID_API_KEY,
+  senderEmail: process.env.SENDER_EMAIL,
   // Stripe
   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
   stripeEndpointSecret: process.env.STRIPE_ENDPOINT_SECRET,
