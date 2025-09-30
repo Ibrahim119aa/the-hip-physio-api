@@ -120,15 +120,21 @@ app.post(
 );
 app.use(morgan('dev'))
 
-const allowedOrigins = ['https://thehipphysio-6d2j.vercel.app','https://thehipphysio.net' ]
+const allowedOrigins = ['https://thehipphysio-6d2j.vercel.app', 'https://thehipphysio.net']
 
-app.use(helmet());
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow mobile apps / curl
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
-
+app.use(helmet());
 
 
 app.use(express.json());
@@ -137,9 +143,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Home route
-app.get("/", async(req, res, next) => {
+app.get("/", async (req, res, next) => {
   try {
-   
+
     res.status(200).json({
       message: "Welcome to The Hip Physio"
     })
