@@ -5,21 +5,23 @@ import RehabPlanModel from "../models/rehabPlan.model";
 import mongoose from "mongoose";
 import { buildCompletionRecord } from "../utils/timezone";
 import { DateTime } from "luxon";
+import UserModel from "../models/user.model";
+import { TUserDocument } from "../types/user.type";
 import { CompleteExerciseSchema, MarkSessionCompleteSchema, TCompleteExerciseRequest, TMarkSessionCompleteRequest } from "../validationSchemas/userProgress.schema";
 import { ProgressDay, ProgressSession, ProgressStatus, ProgressWeek } from "../types/progress.types";
-
+import jwt from "jsonwebtoken";
 export const markExerciseCompleteHandler = async (
-  req: Request<{}, {}, TCompleteExerciseRequest>, 
-  res: Response, 
+  req: Request<{}, {}, TCompleteExerciseRequest>,
+  res: Response,
   next: NextFunction
 ) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
     const parsedBody = CompleteExerciseSchema.safeParse(req.body);
-    
+
     if (!parsedBody.success) {
-      const errorMessages = parsedBody.error.issues.map(issue => { 
+      const errorMessages = parsedBody.error.issues.map(issue => {
         const path = issue.path.join(".");
         return `${path}: ${issue.message}`;
       }).join(", ");
@@ -125,8 +127,8 @@ export const markExerciseCompleteHandler = async (
 };
 
 export const markSessionCompleteAndStreakCount = async (
-  req: Request<{}, {}, TMarkSessionCompleteRequest>, 
-  res: Response, 
+  req: Request<{}, {}, TMarkSessionCompleteRequest>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
@@ -170,12 +172,12 @@ export const markSessionCompleteAndStreakCount = async (
       completedAtLocal,
       timezone,
       dayKey,
-      userNote: userNote && userNote.trim() !== "" 
+      userNote: userNote && userNote.trim() !== ""
         ? {
-            text: userNote.trim(),
-            createdBy: userId,
-            createdAt: new Date()
-          }
+          text: userNote.trim(),
+          createdBy: userId,
+          createdAt: new Date()
+        }
         : null
     };
 
@@ -206,12 +208,12 @@ export const markSessionCompleteAndStreakCount = async (
     const lastCompletedSession = currentProgress.completedSessions
       .sort((a: any, b: any) => (b.dayKey > a.dayKey ? 1 : -1))[0];
 
-      // const lastDay = DateTime.fromFormat(lastCompletedSession.dayKey, 'yyyy-MM-dd');
-      // const currentDay = DateTime.fromFormat(dayKey, 'yyyy-MM-dd');
+    // const lastDay = DateTime.fromFormat(lastCompletedSession.dayKey, 'yyyy-MM-dd');
+    // const currentDay = DateTime.fromFormat(dayKey, 'yyyy-MM-dd');
 
     // Use DateTime to properly calculate day differences in the user's timezone
     const lastDay = DateTime.fromFormat(lastCompletedSession.dayKey, 'yyyy-MM-dd', { zone: timezone });
-    const currentDay = DateTime.fromFormat(dayKey, 'yyyy-MM-dd', { zone: timezone }); 
+    const currentDay = DateTime.fromFormat(dayKey, 'yyyy-MM-dd', { zone: timezone });
 
     const diffInDays = currentDay.diff(lastDay, 'days').days;
 
@@ -255,7 +257,7 @@ export const markSessionCompleteAndStreakCount = async (
   }
 };
 
-export const getUserProgressHandler = async(req: Request, res: Response, next: NextFunction) => {
+export const getUserProgressHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // const { userId, rehabPlanId } = req.params;
     const { rehabPlanId } = req.params;
@@ -264,14 +266,14 @@ export const getUserProgressHandler = async(req: Request, res: Response, next: N
     if (!userId || !rehabPlanId) {
       throw new ErrorHandler(400, 'required data is missing.');
     }
-    
+
     const progress = await UserProgressModel.findOne({ userId, rehabPlanId }).populate({
       path: "rehabPlanId",
       model: "RehabPlan",
       select: "name"
     });
-      
-    if(!progress) {
+
+    if (!progress) {
       throw new ErrorHandler(404, 'User progress not found.');
     }
 
@@ -282,7 +284,7 @@ export const getUserProgressHandler = async(req: Request, res: Response, next: N
     });
   } catch (error) {
     console.error('getUserProgressHandler error', error);
-    
+
     next(error);
   }
 }
@@ -296,7 +298,7 @@ const oid = (v: any) => (typeof v === "string" ? v : (v as mongoose.Types.Object
 export const getUserPlanProgress = async (req: Request, res: Response) => {
   try {
     const { planId, userId } = req.params;
-    
+
     if (!userId) {
       return res.status(400).json({ success: false, message: "userId required" });
     }
@@ -543,8 +545,8 @@ export const getCompletedWithResilience = async (req: Request, res: Response) =>
     const progress = await UserProgressModel.findOne({
       userId: userId,
       rehabPlanId: planId,
-    }).lean<any>(); 
-       
+    }).lean<any>();
+
     const completedExerciseArr = progress?.completedExercises || [];
     const completedSessionArr = progress?.completedSessions || [];
     const weeklyStreak = progress?.streakCountWeekly;
@@ -632,7 +634,7 @@ export const getCompletedWithResilience = async (req: Request, res: Response) =>
     //   .select("weekNumber resilienceScore comments submittedAt")
     //   .sort({ weekNumber: 1 })
     //   .lean<any>();
-    
+
 
     // 8) Shape the payload
     return res.json({
@@ -659,87 +661,136 @@ export const getCompletedWithResilience = async (req: Request, res: Response) =>
 };
 
 
-export const   getUserStreakAndPgoressHanlder = async (
+export const getUserStreakAndProgressHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  const { planId } = req.params;
-  const userId = req.userId;
-
-  // Helper to normalize an id whether it's an ObjectId, string, or populated doc
-  const idOf = (v: any) => (v && typeof v === 'object' ? (v._id ?? v.id ?? v) : v);
-  const idStr = (v: any) => String(idOf(v));
-
   try {
-    // 1) Get progress (for completed exercises)
-    const progress = await UserProgressModel.findOne({
-      userId,
-      rehabPlanId: planId,
-    })
-      .populate({
-        path: "completedExercises.exerciseId",
-        model: "Exercise",
-      })
-      .lean<any>();
+    // 🔹 1) Extract token
+    const authHeader = req.headers["authorization"];
+    if (!authHeader) {
+      return res.status(401).json({ message: "Authorization header missing" });
+    }
 
-    // 2) Get the plan (with exercises populated)
-    const plan = await RehabPlanModel.findOne({ _id: planId })
-      .select("_id schedule")
-      .populate({
-        path: "schedule.sessions",
-        model: "Session",
-        select: "_id exercises",
-        populate: {
-          path: "exercises",
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ message: "Token missing" });
+    }
+
+    // 🔹 2) Verify token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as { userId: string };
+
+    const userId = decoded.userId;
+
+    // 🔹 3) Get the user and purchased plans
+
+    const user = await UserModel.findById(userId).lean<TUserDocument>();
+
+    if (!user) throw new ErrorHandler(404, "User not found");
+
+    if (!user.purchasedPlans || user.purchasedPlans.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "User has no purchased plans",
+        data: [],
+      });
+    }
+
+    // Helper to normalize an id
+    const idOf = (v: any) =>
+      v && typeof v === "object" ? v._id ?? v.id ?? v : v;
+    const idStr = (v: any) => String(idOf(v));
+
+    const results: any[] = [];
+
+    // 🔹 4) Loop through each purchased plan
+    for (const purchasedPlan of user.purchasedPlans) {
+      const planId = idStr(purchasedPlan);
+
+      // 4a) Get user progress for this plan
+      const progress = await UserProgressModel.findOne({
+        userId,
+        rehabPlanId: planId,
+      })
+        .populate({
+          path: "completedExercises.exerciseId",
           model: "Exercise",
-          select: "_id name",
-        },
-      })
-      .lean<any>();
+        })
+        .lean<any>();
 
-    if (!plan) throw new ErrorHandler(404, "Rehab plan not found");
+      // 4b) Get the plan schedule
+      const plan = await RehabPlanModel.findOne({ _id: planId })
+        .select("_id schedule")
+        .populate({
+          path: "schedule.sessions",
+          model: "Session",
+          select: "_id exercises",
+          populate: {
+            path: "exercises",
+            model: "Exercise",
+            select: "_id name",
+          },
+        })
+        .lean<any>();
 
-    // 3) Build completed set: keys like "<sessionId>-<exerciseId>"
-    const completedKeys = new Set<string>(
-      (progress?.completedExercises || []).map((e: any) =>
-        `${idStr(e.sessionId)}-${idStr(e.exerciseId)}`
-      )
-    );
+      if (!plan) continue; // skip if plan not found
 
-    // 4) Build unique plan keys (dedupe duplicates in schedule)
-    const planKeys = new Set<string>();
+      // 4c) Build completed set
+      const completedKeys = new Set<string>(
+        (progress?.completedExercises || []).map((e: any) =>
+          `${idStr(e.sessionId)}-${idStr(e.exerciseId)}`
+        )
+      );
 
-    for (const item of plan.schedule || []) {
-      for (const s of item.sessions || []) {
-        const sessionId = idStr(s._id);
-        for (const ex of s.exercises || []) {
-          // ex may be an ObjectId or a populated doc depending on populate
-          const exerciseId = idStr((ex as any)._id ?? ex);
-          planKeys.add(`${sessionId}-${exerciseId}`);
+      // 4d) Build all exercise keys from plan
+      const planKeys = new Set<string>();
+      for (const item of plan.schedule || []) {
+        for (const s of item.sessions || []) {
+          const sessionId = idStr(s._id);
+          for (const ex of s.exercises || []) {
+            const exerciseId = idStr((ex as any)._id ?? ex);
+            planKeys.add(`${sessionId}-${exerciseId}`);
+          }
         }
       }
-    }
 
-    // 5) Compute totals
-    const totalExercises = planKeys.size;
-    let completedExercises = 0;
+      // 4e) Totals
+      const totalExercises = planKeys.size;
+      let completedExercises = 0;
+      for (const key of planKeys) {
+        if (completedKeys.has(key)) completedExercises++;
+      }
 
-    for (const key of planKeys) {
-      if (completedKeys.has(key)) completedExercises += 1;
-    }
-    const uncompletedExercises = totalExercises - completedExercises;
+      const uncompletedExercises = totalExercises - completedExercises;
 
-    // 6) Response
-    return res.status(200).json({
-      success: true,
-      message: "User progress with uncompleted count",
-      data: {
-        progress,
+      // 4f) Push to results
+      results.push({
+        planId,
         totalExercises,
         completedExercises,
         uncompletedExercises,
+        progress,
+      });
+    }
+    const summary = results.reduce(
+      (acc, item) => {
+        acc.totalExercises += item.totalExercises;
+        acc.completedExercises += item.completedExercises;
+        acc.uncompletedExercises += item.uncompletedExercises;
+        return acc;
       },
+      { totalExercises: 0, completedExercises: 0, uncompletedExercises: 0 }
+    );
+
+    // 🔹 5) Response
+    return res.status(200).json({
+      success: true,
+      message: "User progress for purchased plans",
+      data: summary,
     });
   } catch (error) {
     console.error("getUserStreak error", error);
